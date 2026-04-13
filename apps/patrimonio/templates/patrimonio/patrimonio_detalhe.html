@@ -1,0 +1,149 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}{{ item.nome }} - Detalhe{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="flex items-start gap-3 mb-6">
+    <a href="{% url 'patrimonio_lista' %}"
+       class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg mt-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <div class="flex-1">
+        <div class="flex flex-wrap items-center gap-3">
+            <h1 class="text-2xl font-bold text-gray-800">{{ item.nome }}</h1>
+            <span class="{{ item.get_status_badge_class }} text-sm px-3 py-1">
+                {{ item.get_status_display }}
+            </span>
+        </div>
+        <p class="text-gray-500 text-sm mt-1">Chapa Nº {{ item.numero_chapa }}</p>
+    </div>
+
+    <div class="flex gap-2 flex-shrink-0 flex-wrap">
+        <!-- Botão QR Code: disponível para todos -->
+        <a href="{% url 'pagina_qrcode' item.pk %}"
+           class="px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg text-sm font-medium border border-blue-200 transition-colors flex items-center gap-1.5">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+            </svg>
+            QR Code
+        </a>
+        {% if user.is_staff %}
+        <a href="{% url 'patrimonio_editar' item.pk %}"
+           class="px-4 py-2 bg-yellow-50 hover:bg-yellow-100 text-yellow-700 rounded-lg text-sm font-medium border border-yellow-200 transition-colors">
+            Editar
+        </a>
+        <a href="{% url 'patrimonio_deletar' item.pk %}"
+           class="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-700 rounded-lg text-sm font-medium border border-red-200 transition-colors">
+            Deletar
+        </a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+    <!-- Informações principais -->
+    <div class="lg:col-span-2 space-y-6">
+
+        <!-- Card de informações -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                Informações do Item
+            </h2>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Categoria</dt>
+                    <dd class="mt-1 text-sm text-gray-800">{{ item.categoria|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Localização</dt>
+                    <dd class="mt-1 text-sm text-gray-800">{{ item.localizacao|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Responsável</dt>
+                    <dd class="mt-1 text-sm text-gray-800">{{ item.responsavel|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Fornecedor</dt>
+                    <dd class="mt-1 text-sm text-gray-800">{{ item.fornecedor|default:"—" }}</dd>
+                </div>
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Data de Aquisição</dt>
+                    <dd class="mt-1 text-sm text-gray-800">
+                        {% if item.data_aquisicao %}{{ item.data_aquisicao|date:"d/m/Y" }}{% else %}—{% endif %}
+                    </dd>
+                </div>
+
+                <div>
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Valor</dt>
+                    <dd class="mt-1 text-sm font-semibold text-gray-800">
+                        {% if item.valor %}R$ {{ item.valor|floatformat:"2" }}{% else %}—{% endif %}
+                    </dd>
+                </div>
+
+                {% if item.descricao %}
+                <div class="sm:col-span-2">
+                    <dt class="text-xs font-medium text-gray-500 uppercase tracking-wide">Descrição</dt>
+                    <dd class="mt-1 text-sm text-gray-800 whitespace-pre-wrap">{{ item.descricao }}</dd>
+                </div>
+                {% endif %}
+
+            </dl>
+        </div>
+
+        <!-- Histórico de alterações -->
+        {% if logs %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+            <h2 class="text-base font-semibold text-gray-800 mb-4 pb-2 border-b border-gray-100">
+                Histórico de Alterações
+            </h2>
+            <div class="space-y-3">
+                {% for log in logs %}
+                <div class="flex gap-3 text-sm">
+                    <div class="flex-shrink-0 w-32 text-gray-400 text-xs pt-0.5">
+                        {{ log.criado_em|date:"d/m/Y H:i" }}
+                    </div>
+                    <div>
+                        <span class="font-medium text-gray-700">{{ log.usuario_nome }}</span>:
+                        <span class="text-gray-600">{{ log.descricao }}</span>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Painel lateral com resumo -->
+    <div class="space-y-4">
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+            <h2 class="text-sm font-semibold text-gray-700 mb-3">Identificação</h2>
+            <div class="text-center py-4">
+                <span class="block text-4xl font-bold text-blue-700 font-mono">{{ item.numero_chapa }}</span>
+                <span class="text-xs text-gray-500 mt-1 block">Número da Chapa</span>
+            </div>
+            <div class="pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1">
+                <div class="flex justify-between">
+                    <span>Cadastrado em:</span>
+                    <span>{{ item.criado_em|date:"d/m/Y" }}</span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Última atualização:</span>
+                    <span>{{ item.atualizado_em|date:"d/m/Y" }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+{% endblock %}

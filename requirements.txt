@@ -1,0 +1,38 @@
+# ============================================================
+# DEPENDÊNCIAS DO PROJETO - Sistema de Gestão Patrimonial
+# ============================================================
+# Para instalar: pip install -r requirements.txt
+
+# --- Framework principal ---
+Django==4.2.16               # Framework web Django (versão LTS - suporte longo)
+
+# --- Banco de dados PostgreSQL (Supabase usa PostgreSQL) ---
+# psycopg3 (pacote "psycopg") é a versão moderna do driver PostgreSQL
+# Suporta Python 3.12+ incluindo 3.14. [binary] instala a versão pré-compilada.
+psycopg[binary]>=3.1         # Driver moderno para conectar Django ao PostgreSQL
+
+# --- Variáveis de ambiente (lê o arquivo .env) ---
+python-decouple==3.8         # Lê configurações do arquivo .env de forma segura
+
+# --- Importação de arquivos Excel ---
+openpyxl>=3.1                # Lê e escreve arquivos .xlsx (Excel moderno)
+xlrd==2.0.1                  # Lê arquivos .xls (Excel antigo)
+
+# --- Geração de QR Code ---
+qrcode>=7.4                  # Gera imagens QR Code (depende do Pillow, já instalado)
+
+# --- Geração de PDF ---
+reportlab>=4.2               # Biblioteca para criar PDFs com Python
+
+# --- Converte DATABASE_URL para configuração Django ---
+dj-database-url>=2.2         # Lê DATABASE_URL e configura o banco automaticamente
+
+# --- Servidor de produção ---
+gunicorn>=22.0               # Servidor WSGI para deploy (substitui o servidor dev do Django)
+
+# --- Arquivos estáticos em produção ---
+whitenoise>=6.7              # Serve arquivos CSS/JS/imagens sem precisar de Nginx
+
+# --- SDK do Supabase (não usado diretamente - nossa app conecta via PostgreSQL) ---
+# supabase>=2.7             # Desativado: puxa dependências pesadas desnecessárias
+#                           # Nossa app acessa o Supabase via conexão PostgreSQL direta

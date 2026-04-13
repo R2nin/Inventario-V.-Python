@@ -1,0 +1,302 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}{{ titulo }} - Patrimônio{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho com botão voltar -->
+<div class="flex items-center gap-3 mb-4">
+    {% if local_travado %}
+    <a href="{% url 'conferencia_sala' %}?local={{ local_travado.nome|urlencode }}"
+       class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+    {% else %}
+    <a href="{% url 'patrimonio_lista' %}"
+       class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors">
+    {% endif %}
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">{{ titulo }}</h1>
+        <p class="text-gray-500 text-sm">Preencha todos os campos obrigatórios (*)</p>
+    </div>
+    {% if not item and not local_travado %}
+    <a href="{% url 'carregar_xls_referencia' %}"
+       class="ml-auto flex items-center gap-2 px-3 py-2 bg-green-50 hover:bg-green-100 text-green-700
+              rounded-lg text-sm font-medium border border-green-200 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Carregar XLS
+    </a>
+    {% endif %}
+</div>
+
+{% if local_travado %}
+<!-- Banner de modo conferência -->
+<div class="flex items-center gap-3 p-3 mb-4 bg-blue-50 border border-blue-300 rounded-lg text-sm text-blue-800">
+    <svg class="w-5 h-5 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+    </svg>
+    <span>
+        <strong>Modo Conferência</strong> — Inventariando a sala:
+        <strong>{{ local_travado.nome }}</strong>
+    </span>
+</div>
+{% endif %}
+
+{% if not item %}
+<!-- Banner: XLS carregado -->
+<div id="banner-xls" class="hidden items-center gap-3 p-3 mb-4 bg-green-50 border border-green-200 rounded-lg text-sm text-green-800">
+    <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+    </svg>
+    XLS carregado — {% if chapa_inicial %}chapa {{ chapa_inicial }} detectada{% else %}digite o número da chapa para preencher automaticamente{% endif %}
+</div>
+<!-- Dica: XLS não carregado -->
+<div id="banner-sem-xls" class="hidden items-center gap-3 p-3 mb-4 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
+    <svg class="w-4 h-4 text-yellow-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    XLS não carregado — <a href="{% url 'carregar_xls_referencia' %}" class="underline font-medium">clique aqui para carregar</a>
+</div>
+{% endif %}
+
+<!-- Formulário dentro de um card branco -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <form method="POST" class="space-y-6">
+        {% csrf_token %}
+
+        <!-- Grid de 2 colunas em telas médias -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+
+            <!-- Número da Chapa -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.numero_chapa.label }} *
+                </label>
+                {{ form.numero_chapa }}
+                {% if form.numero_chapa.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.numero_chapa.errors.0 }}</p>
+                {% endif %}
+                <p class="text-gray-400 text-xs mt-1">{{ form.numero_chapa.help_text }}</p>
+            </div>
+
+            <!-- Nome do Item -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.nome.label }} *
+                </label>
+                {{ form.nome }}
+                {% if form.nome.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.nome.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Localização -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.localizacao.label }}
+                </label>
+                {% if local_travado %}
+                    <!-- Modo conferência: localização travada (não pode ser alterada) -->
+                    <div class="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-300 rounded-lg">
+                        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                        </svg>
+                        <span class="text-sm font-medium text-blue-800">{{ local_travado.nome }}</span>
+                        <span class="text-xs text-blue-500 ml-1">(travado — modo conferência)</span>
+                    </div>
+                    <!-- Campo hidden para enviar o valor no POST -->
+                    <input type="hidden" name="localizacao" value="{{ local_travado.pk }}">
+                {% else %}
+                    {{ form.localizacao }}
+                    {% if form.localizacao.errors %}
+                    <p class="text-red-600 text-xs mt-1">{{ form.localizacao.errors.0 }}</p>
+                    {% endif %}
+                    <p class="text-gray-400 text-xs mt-1">
+                        Não encontrou? <a href="{% url 'localizacao_criar' %}" class="text-blue-600 hover:underline">Cadastrar nova localização</a>
+                    </p>
+                {% endif %}
+            </div>
+
+            <!-- Data de Aquisição -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.data_aquisicao.label }}
+                </label>
+                {{ form.data_aquisicao }}
+                {% if form.data_aquisicao.errors %}
+                <p class="text-red-600 text-xs mt-1">{{ form.data_aquisicao.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Descrição (ocupa as 2 colunas) -->
+            <div class="md:col-span-2">
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    {{ form.descricao.label }}
+                </label>
+                {{ form.descricao }}
+            </div>
+
+        </div>
+
+        <!-- Erros gerais do formulário (não relacionados a campos específicos) -->
+        {% if form.non_field_errors %}
+        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            {{ form.non_field_errors }}
+        </div>
+        {% endif %}
+
+        <!-- Campo hidden para retornar à sala de conferência após salvar -->
+        {% if local_travado %}
+        <input type="hidden" name="voltar_local" value="{{ local_travado.nome }}">
+        {% endif %}
+
+        <!-- Botões de ação -->
+        <div class="flex items-center justify-between gap-3 pt-4 border-t border-gray-100">
+
+            {% if local_travado %}
+            <!-- Modo conferência: botão Finalizar Sala gera o Excel -->
+            <a href="{% url 'conferencia_exportar' %}?local={{ local_travado.nome|urlencode }}"
+               class="flex items-center gap-2 px-5 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+                </svg>
+                Finalizar Sala e Exportar XLS
+            </a>
+            {% else %}
+            <span></span>
+            {% endif %}
+
+            <div class="flex gap-3">
+                {% if local_travado %}
+                <a href="{% url 'conferencia_sala' %}?local={{ local_travado.nome|urlencode }}"
+                   class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    Voltar à Sala
+                </a>
+                {% else %}
+                <a href="{% if item %}{% url 'patrimonio_detalhe' item.pk %}{% else %}{% url 'patrimonio_lista' %}{% endif %}"
+                   class="px-5 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    Cancelar
+                </a>
+                {% endif %}
+                <button type="submit"
+                        class="px-5 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors">
+                    {% if item %}Salvar Alterações{% else %}Criar e continuar{% endif %}
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+
+{% if not item %}
+<script>
+// ============================================================
+// AUTO-PREENCHIMENTO A PARTIR DO XLS DE REFERÊNCIA
+// ============================================================
+// Quando o usuário digita o número da chapa e sai do campo (blur)
+// ou pressiona Enter, buscamos os dados na API e preenchemos o form.
+// ============================================================
+
+const inputChapa   = document.getElementById('id_numero_chapa');
+const inputNome    = document.getElementById('id_nome');
+const inputData    = document.getElementById('id_data_aquisicao');
+const inputStatus  = document.getElementById('id_status');
+const bannerOk     = document.getElementById('banner-xls');
+const bannerSemXls = document.getElementById('banner-sem-xls');
+
+let buscando = false;
+let jaPreenchido = false;  // Evita buscas repetidas após o auto-fill
+
+// Verifica se o XLS está carregado ao abrir a página (testa com chapa 0)
+fetch('/patrimonio/xls-ref/0/')
+    .then(r => r.json())
+    .then(data => {
+        if ('erro' in data && data.erro === 'XLS não carregado') {
+            bannerSemXls.classList.remove('hidden');
+            bannerSemXls.classList.add('flex');
+        } else {
+            bannerOk.classList.remove('hidden');
+            bannerOk.classList.add('flex');
+        }
+    })
+    .catch(() => {});
+
+// Função principal: busca dados pelo número de chapa
+function buscarDadosChapa() {
+    const chapa = inputChapa.value.trim();
+    if (!chapa || parseInt(chapa) <= 0 || buscando || jaPreenchido) return;
+
+    buscando = true;
+    inputChapa.style.borderColor = '#93c5fd';  // Azul: buscando
+
+    fetch(`/patrimonio/xls-ref/${chapa}/`)
+        .then(r => r.json())
+        .then(data => {
+            buscando = false;
+            if (data.encontrado) {
+                // Preenche os campos somente se estiverem vazios
+                if (inputNome.value === '' && data.nome)
+                    inputNome.value = data.nome;
+
+                if (inputData.value === '' && data.data)
+                    inputData.value = data.data;  // Formato YYYY-MM-DD para o input date
+
+                if (inputStatus.value === '' && data.status)
+                    inputStatus.value = data.status;
+
+                // Mostra dica de localização se houver
+                if (data.local) {
+                    let dica = document.getElementById('dica-local');
+                    if (!dica) {
+                        dica = document.createElement('p');
+                        dica.id = 'dica-local';
+                        dica.className = 'text-xs text-blue-600 mt-1';
+                        document.getElementById('id_localizacao').parentElement.appendChild(dica);
+                    }
+                    dica.textContent = `Sugestão do XLS: "${data.local}"`;
+                }
+
+                inputChapa.style.borderColor = '#86efac';  // Verde: encontrado
+                jaPreenchido = true;  // Não busca mais até o usuário mudar a chapa
+            } else {
+                inputChapa.style.borderColor = '#fca5a5';  // Vermelho: não encontrado
+            }
+            setTimeout(() => { inputChapa.style.borderColor = ''; }, 2000);
+        })
+        .catch(() => { buscando = false; });
+}
+
+// Reseta o controle se o usuário alterar a chapa manualmente
+inputChapa.addEventListener('input', function() {
+    jaPreenchido = false;
+});
+
+// Dispara ao sair do campo (Tab ou clique fora)
+inputChapa.addEventListener('blur', buscarDadosChapa);
+
+// Dispara ao pressionar Enter no campo chapa
+inputChapa.addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        buscarDadosChapa();
+        inputNome.focus();
+    }
+});
+
+// Se a chapa veio pré-preenchida (modo conferência), dispara o auto-fill automaticamente
+{% if chapa_inicial %}
+window.addEventListener('DOMContentLoaded', function() {
+    setTimeout(buscarDadosChapa, 300);  // Aguarda o banner de XLS carregar primeiro
+});
+{% endif %}
+</script>
+{% endif %}
+
+{% endblock %}

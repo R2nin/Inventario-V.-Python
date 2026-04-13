@@ -1,0 +1,191 @@
+{% extends 'patrimonio/base.html' %}
+<!-- DASHBOARD.HTML - Página inicial com estatísticas
+     Herda o layout de base.html via extends.
+     Preenche os blocos: title e content. -->
+
+{% block title %}Dashboard - Patrimônio{% endblock %}
+
+{% block content %}
+
+<!-- Título da página -->
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Dashboard</h1>
+        <p class="text-gray-500 text-sm">Visão geral do patrimônio</p>
+    </div>
+    {% if user.is_staff %}
+    <a href="{% url 'patrimonio_criar' %}"
+       class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors">
+        + Novo Item
+    </a>
+    {% endif %}
+</div>
+
+<!-- ================================================ -->
+<!-- CARDS DE ESTATÍSTICAS -->
+<!-- ================================================ -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+    <!-- Total de itens -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Total de Itens</p>
+                {# |floatformat:"0" formata o número sem casas decimais #}
+                <p class="text-3xl font-bold text-gray-800 mt-1">{{ total_itens }}</p>
+            </div>
+            <div class="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Itens ativos -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Ativos</p>
+                <p class="text-3xl font-bold text-green-600 mt-1">{{ itens_ativos }}</p>
+            </div>
+            <div class="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Em manutenção -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Manutenção</p>
+                <p class="text-3xl font-bold text-yellow-600 mt-1">{{ itens_manutencao }}</p>
+            </div>
+            <div class="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Valor total -->
+    <div class="bg-white rounded-xl p-5 shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between">
+            <div>
+                <p class="text-xs font-medium text-gray-500 uppercase tracking-wide">Valor Total</p>
+                {# floatformat:"2" → 2 casas decimais #}
+                <p class="text-xl font-bold text-gray-800 mt-1">
+                    R$ {{ valor_total|floatformat:"2" }}
+                </p>
+            </div>
+            <div class="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<!-- ================================================ -->
+<!-- TABELA DE ÚLTIMOS ITENS + LOCALIZAÇÕES -->
+<!-- ================================================ -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+
+    <!-- Últimos itens adicionados -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-800">Últimos Itens Adicionados</h2>
+            <a href="{% url 'patrimonio_lista' %}" class="text-blue-600 hover:text-blue-800 text-sm">Ver todos →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+            {% for item in ultimos_itens %}
+            <div class="px-5 py-3 flex items-center justify-between hover:bg-gray-50">
+                <div>
+                    <a href="{% url 'patrimonio_detalhe' item.pk %}"
+                       class="text-sm font-medium text-gray-800 hover:text-blue-600">
+                        {{ item.nome }}
+                    </a>
+                    <p class="text-xs text-gray-500">Chapa: {{ item.numero_chapa }}</p>
+                </div>
+                <!-- Badge de status com classe dinâmica -->
+                <span class="{{ item.get_status_badge_class }}">
+                    {{ item.get_status_display }}
+                </span>
+            </div>
+            {% empty %}
+            <p class="px-5 py-8 text-center text-gray-400 text-sm">Nenhum item cadastrado ainda.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Top localizações -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+            <h2 class="font-semibold text-gray-800">Itens por Localização</h2>
+            <a href="{% url 'localizacao_lista' %}" class="text-blue-600 hover:text-blue-800 text-sm">Gerenciar →</a>
+        </div>
+        <div class="px-5 py-4 space-y-3">
+            {% for loc in por_localizacao %}
+            <div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-gray-700">{{ loc.localizacao__nome|default:"Sem localização" }}</span>
+                    <span class="font-medium text-gray-800">{{ loc.quantidade }}</span>
+                </div>
+                <!-- Barra de progresso proporcional -->
+                <div class="w-full bg-gray-100 rounded-full h-1.5">
+                    <div class="bg-blue-600 h-1.5 rounded-full"
+                         style="width: {% widthratio loc.quantidade total_itens 100 %}%"></div>
+                </div>
+            </div>
+            {% empty %}
+            <p class="text-center text-gray-400 text-sm py-4">Nenhuma localização cadastrada.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+
+<!-- ================================================ -->
+<!-- ÚLTIMOS LOGS -->
+<!-- ================================================ -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+        <h2 class="font-semibold text-gray-800">Últimas Atividades</h2>
+        <a href="{% url 'log_lista' %}" class="text-blue-600 hover:text-blue-800 text-sm">Ver todos →</a>
+    </div>
+    <div class="divide-y divide-gray-50">
+        {% for log in ultimos_logs %}
+        <div class="px-5 py-3 flex items-start gap-3">
+            <!-- Ícone de ação -->
+            <div class="w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5
+                        {% if log.acao == 'CRIAR' %}bg-green-100 text-green-600
+                        {% elif log.acao == 'EDITAR' %}bg-blue-100 text-blue-600
+                        {% elif log.acao == 'DELETAR' %}bg-red-100 text-red-600
+                        {% elif log.acao == 'IMPORTAR' %}bg-purple-100 text-purple-600
+                        {% else %}bg-gray-100 text-gray-600{% endif %}">
+                <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
+                    <circle cx="10" cy="10" r="5"/>
+                </svg>
+            </div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-gray-700">{{ log.descricao }}</p>
+                <p class="text-xs text-gray-400 mt-0.5">
+                    {{ log.usuario_nome }} &middot;
+                    {# date:"d/m/Y H:i" → formata a data no padrão brasileiro #}
+                    {{ log.criado_em|date:"d/m/Y H:i" }}
+                </p>
+            </div>
+        </div>
+        {% empty %}
+        <p class="px-5 py-8 text-center text-gray-400 text-sm">Nenhuma atividade registrada.</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% endblock %}

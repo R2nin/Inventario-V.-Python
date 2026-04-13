@@ -1,0 +1,79 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}Carregar XLS de Referência{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6">
+    <a href="{% url 'patrimonio_lista' %}"
+       class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">XLS de Referência</h1>
+        <p class="text-gray-500 text-sm">
+            Carregue o inventário para auto-preencher o formulário ao digitar o número da chapa
+        </p>
+    </div>
+</div>
+
+<div class="max-w-lg">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+
+        {% if total_carregado %}
+        <!-- Status: XLS já carregado -->
+        <div class="flex items-center gap-3 p-3 mb-5 bg-green-50 border border-green-200 rounded-lg">
+            <svg class="w-5 h-5 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+            </svg>
+            <p class="text-sm text-green-800">
+                XLS atual: <strong>{{ total_carregado }} itens</strong> disponíveis para auto-preenchimento.
+                Envie um novo arquivo para substituir.
+            </p>
+        </div>
+        {% endif %}
+
+        <form method="POST" enctype="multipart/form-data" class="space-y-5">
+            {% csrf_token %}
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Arquivo XLS / XLSX
+                </label>
+                <input type="file"
+                       name="arquivo"
+                       accept=".xls,.xlsx"
+                       required
+                       class="block w-full text-sm text-gray-600
+                              file:mr-4 file:py-2 file:px-4
+                              file:rounded-lg file:border-0
+                              file:text-sm file:font-medium
+                              file:bg-blue-50 file:text-blue-700
+                              hover:file:bg-blue-100 cursor-pointer">
+                <p class="text-xs text-gray-400 mt-2">
+                    Formato esperado: coluna <strong>Patrim</strong> (número), <strong>Descrição2</strong> (nome),
+                    <strong>Data</strong>, <strong>Local 2</strong>, <strong>Estado 2</strong>
+                </p>
+            </div>
+
+            <button type="submit"
+                    class="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors">
+                Carregar XLS
+            </button>
+        </form>
+    </div>
+
+    <!-- Explicação do fluxo -->
+    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
+        <h3 class="text-sm font-semibold text-blue-800 mb-2">Como funciona:</h3>
+        <ol class="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+            <li>Carregue o XLS com o inventário completo aqui</li>
+            <li>Vá em <strong>+ Novo Item</strong> no patrimônio</li>
+            <li>Digite o número da chapa — os campos são preenchidos automaticamente</li>
+            <li>Confira os dados e clique em <strong>Criar Item</strong></li>
+        </ol>
+    </div>
+</div>
+
+{% endblock %}

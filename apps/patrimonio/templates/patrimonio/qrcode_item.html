@@ -1,0 +1,114 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}QR Code - Chapa {{ item.numero_chapa }}{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center gap-3 mb-6 no-print">
+    <a href="{% url 'patrimonio_detalhe' item.pk %}"
+       class="p-2 text-gray-500 hover:bg-gray-100 rounded-lg">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+    </a>
+    <h1 class="text-2xl font-bold text-gray-800">QR Code do Item</h1>
+</div>
+
+<!-- Área de impressão: só este card é impresso -->
+<div class="max-w-sm mx-auto">
+
+    <!-- Card principal com QR Code -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center print-card">
+
+        <!-- Nome da organização (opcional) -->
+        <p class="text-xs text-gray-400 uppercase tracking-widest mb-4">Patrimônio</p>
+
+        <!-- QR Code gerado pelo Django (imagem PNG) -->
+        <img src="{% url 'gerar_qrcode' item.pk %}"
+             alt="QR Code chapa {{ item.numero_chapa }}"
+             class="w-48 h-48 mx-auto border border-gray-100 rounded-lg p-1">
+
+        <!-- Número da chapa em destaque -->
+        <div class="mt-4 mb-2">
+            <span class="text-4xl font-bold font-mono text-gray-800">{{ item.numero_chapa }}</span>
+            <p class="text-xs text-gray-500 mt-1">Número da Chapa</p>
+        </div>
+
+        <!-- Divisor -->
+        <div class="border-t border-dashed border-gray-200 my-3"></div>
+
+        <!-- Informações do item -->
+        <div class="text-left space-y-1.5">
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-500">Item:</span>
+                <span class="font-medium text-gray-800 text-right max-w-48">{{ item.nome }}</span>
+            </div>
+            {% if item.categoria %}
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-500">Categoria:</span>
+                <span class="text-gray-700">{{ item.categoria }}</span>
+            </div>
+            {% endif %}
+            {% if item.localizacao %}
+            <div class="flex justify-between text-sm">
+                <span class="text-gray-500">Local:</span>
+                <span class="text-gray-700">{{ item.localizacao }}</span>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Status -->
+        <div class="mt-3">
+            <span class="{{ item.get_status_badge_class }}">{{ item.get_status_display }}</span>
+        </div>
+    </div>
+
+    <!-- Botões de ação (não aparecem na impressão) -->
+    <div class="mt-4 flex gap-3 no-print">
+        <button onclick="window.print()"
+                class="flex-1 flex items-center justify-center gap-2 py-2.5
+                       bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+            </svg>
+            Imprimir
+        </button>
+        <a href="{% url 'gerar_qrcode' item.pk %}"
+           download="{{ item.numero_chapa }}.png"
+           class="flex-1 flex items-center justify-center gap-2 py-2.5
+                  bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Baixar PNG
+        </a>
+    </div>
+
+    <!-- Dica -->
+    <p class="text-xs text-gray-400 text-center mt-3 no-print">
+        Imprima e cole na etiqueta do item patrimonial.
+        O QR Code contém o número da chapa <strong>{{ item.numero_chapa }}</strong>.
+    </p>
+</div>
+
+<!-- Estilos específicos para impressão -->
+<style>
+    @media print {
+        /* Esconde tudo que não é o card de impressão */
+        .no-print { display: none !important; }
+        nav, footer, main > *:not(.max-w-sm) { display: none !important; }
+
+        /* Remove margens e fundo da página ao imprimir */
+        @page { margin: 1cm; }
+        body { background: white !important; }
+
+        /* O card fica centralizado e sem sombra na impressão */
+        .print-card {
+            box-shadow: none !important;
+            border: 1px solid #ddd !important;
+        }
+    }
+</style>
+
+{% endblock %}

@@ -1,0 +1,99 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}Logs de Auditoria{% endblock %}
+
+{% block content %}
+
+<div class="flex items-center justify-between mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Logs de Auditoria</h1>
+        <p class="text-gray-500 text-sm">Histórico de todas as ações no sistema</p>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-4">
+    <form method="GET" class="flex flex-wrap gap-3">
+        <input type="text" name="busca" value="{{ busca }}"
+               placeholder="Buscar na descrição..."
+               class="form-input flex-1 min-w-48">
+        <select name="tipo" class="form-input w-44">
+            <option value="">Todos os tipos</option>
+            {% for valor, label in tipos %}
+            <option value="{{ valor }}" {% if tipo_filtro == valor %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <select name="acao" class="form-input w-36">
+            <option value="">Todas as ações</option>
+            {% for valor, label in acoes %}
+            <option value="{{ valor }}" {% if acao_filtro == valor %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+        <button type="submit" class="px-4 py-2 bg-blue-700 text-white rounded-lg text-sm">Filtrar</button>
+        {% if busca or tipo_filtro or acao_filtro %}
+        <a href="{% url 'log_lista' %}" class="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg text-sm">Limpar</a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Tabela de logs -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <table class="w-full text-sm">
+        <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Data/Hora</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Usuário</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Ação</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden md:table-cell">Tipo</th>
+                <th class="px-4 py-3 text-left font-semibold text-gray-600">Descrição</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+            {% for log in logs %}
+            <tr class="hover:bg-gray-50">
+                <td class="px-4 py-3 text-gray-600 whitespace-nowrap text-xs">
+                    {{ log.criado_em|date:"d/m/Y H:i" }}
+                </td>
+                <td class="px-4 py-3 text-gray-700 font-medium">{{ log.usuario_nome|default:"—" }}</td>
+                <td class="px-4 py-3">
+                    <span class="px-2 py-1 rounded text-xs font-medium
+                        {% if log.acao == 'CRIAR' %}bg-green-100 text-green-700
+                        {% elif log.acao == 'EDITAR' %}bg-blue-100 text-blue-700
+                        {% elif log.acao == 'DELETAR' %}bg-red-100 text-red-700
+                        {% elif log.acao == 'IMPORTAR' %}bg-purple-100 text-purple-700
+                        {% elif log.acao == 'LOGIN' %}bg-gray-100 text-gray-600
+                        {% else %}bg-gray-100 text-gray-600{% endif %}">
+                        {{ log.get_acao_display }}
+                    </span>
+                </td>
+                <td class="px-4 py-3 text-gray-600 hidden md:table-cell text-xs">{{ log.get_tipo_entidade_display }}</td>
+                <td class="px-4 py-3 text-gray-700">{{ log.descricao }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="px-4 py-12 text-center text-gray-400">
+                    Nenhum log encontrado.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Paginação -->
+    {% if logs.has_other_pages %}
+    <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
+        <p class="text-gray-500">Página {{ logs.number }} de {{ logs.paginator.num_pages }}</p>
+        <div class="flex gap-1">
+            {% if logs.has_previous %}
+            <a href="?pagina={{ logs.previous_page_number }}{% if busca %}&busca={{ busca }}{% endif %}"
+               class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-700">← Anterior</a>
+            {% endif %}
+            {% if logs.has_next %}
+            <a href="?pagina={{ logs.next_page_number }}{% if busca %}&busca={{ busca }}{% endif %}"
+               class="px-3 py-1.5 bg-blue-700 text-white rounded hover:bg-blue-800">Próxima →</a>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+{% endblock %}

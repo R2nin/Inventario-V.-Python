@@ -1,0 +1,187 @@
+{% comment %}
+  BASE.HTML - Template base do sistema
+  Todos os outros templates herdam este arquivo com: extends 'patrimonio/base.html'
+  Blocos disponíveis: block title, block content
+{% endcomment %}
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema Patrimonial{% endblock %}</title>
+
+    <!-- TailwindCSS via CDN - não precisa instalar nada! -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Configuração de cores personalizadas do Tailwind -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: { DEFAULT: '#1e40af', light: '#3b82f6', dark: '#1e3a8a' }
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Estilos globais reutilizáveis -->
+    <!-- type="text/tailwindcss" permite usar @apply com o CDN do Tailwind -->
+    <style type="text/tailwindcss">
+        /* Classe padrão para inputs de formulário */
+        .form-input {
+            @apply w-full px-3 py-2 border border-gray-300 rounded-lg text-sm
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500
+                   bg-white;
+        }
+        /* Badges de status */
+        .badge-ativo      { @apply inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800; }
+        .badge-manutencao { @apply inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800; }
+        .badge-baixado    { @apply inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800; }
+        /* Transição suave no hover */
+        .nav-item { @apply transition-colors duration-150; }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+
+    <!-- ================================================ -->
+    <!-- BARRA DE NAVEGAÇÃO SUPERIOR -->
+    <!-- ================================================ -->
+    <nav class="bg-blue-800 text-white shadow-lg">
+        <div class="max-w-7xl mx-auto px-4">
+            <div class="flex items-center justify-between h-16">
+
+                <!-- Logo / Nome do sistema -->
+                <a href="{% url 'dashboard' %}" class="flex items-center gap-2 font-bold text-xl">
+                    <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+                    </svg>
+                    <span class="hidden sm:block">Patrimônio</span>
+                </a>
+
+                <!-- Menu de navegação (desktop) -->
+                <div class="hidden md:flex items-center gap-1">
+
+                    <!-- Dashboard -->
+                    <a href="{% url 'dashboard' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'dashboard' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Dashboard
+                    </a>
+
+                    <!-- Patrimônio -->
+                    <a href="{% url 'patrimonio_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'patrimonio' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Patrimônio
+                    </a>
+
+                    <!-- Fornecedores -->
+                    <a href="{% url 'fornecedor_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'fornecedores' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Fornecedores
+                    </a>
+
+                    <!-- Localizações -->
+                    <a href="{% url 'localizacao_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'localizacoes' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Localizações
+                    </a>
+
+                    <!-- Somente para administradores -->
+                    {% if user.is_staff %}
+                    <a href="{% url 'usuario_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'usuarios' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Usuários
+                    </a>
+                    {% endif %}
+
+                    <!-- Logs -->
+                    <a href="{% url 'log_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'logs' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Logs
+                    </a>
+
+                    <!-- Conferência de Inventário -->
+                    <a href="{% url 'conferencia_inicio' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'conferencia' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Conferência
+                    </a>
+
+                    <!-- Scanner QR Code -->
+                    <a href="{% url 'scanner_qrcode' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1.5
+                              {% if pagina_ativa == 'scanner' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}"
+                       title="Ler QR Code de uma chapa">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1-1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                        </svg>
+                        Scanner
+                    </a>
+                </div>
+
+                <!-- Usuário logado + botão sair -->
+                <div class="flex items-center gap-3">
+                    <span class="text-sm text-blue-200 hidden sm:block">
+                        {{ user.get_full_name|default:user.username }}
+                        {% if user.is_staff %}
+                            <span class="ml-1 px-1.5 py-0.5 bg-yellow-500 text-yellow-900 text-xs rounded font-bold">ADMIN</span>
+                        {% endif %}
+                    </span>
+                    <a href="{% url 'logout' %}"
+                       class="px-3 py-1.5 bg-blue-900 hover:bg-red-600 rounded-md text-sm transition-colors">
+                        Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ================================================ -->
+    <!-- MENSAGENS FLASH (alertas de sucesso/erro)
+         São criadas nas views com: messages.success(request, '...')
+    ================================================ -->
+    {% if messages %}
+    <div class="max-w-7xl mx-auto px-4 mt-4 space-y-2">
+        {% for message in messages %}
+        <div class="flex items-center justify-between p-4 rounded-lg border
+                    {% if message.tags == 'success' %}bg-green-50 border-green-200 text-green-800
+                    {% elif message.tags == 'error' %}bg-red-50 border-red-200 text-red-800
+                    {% elif message.tags == 'warning' %}bg-yellow-50 border-yellow-200 text-yellow-800
+                    {% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+            <span class="text-sm">{{ message }}</span>
+            <!-- Botão para fechar o alerta (JavaScript puro) -->
+            <button onclick="this.parentElement.remove()" class="ml-4 opacity-60 hover:opacity-100 text-lg font-bold">&times;</button>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ================================================ -->
+    <!-- CONTEÚDO PRINCIPAL DA PÁGINA
+         Cada template filho preenche este bloco.
+    ================================================ -->
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        {% block content %}
+        {# O conteúdo específico de cada página vai aqui #}
+        {% endblock %}
+    </main>
+
+    <!-- ================================================ -->
+    <!-- RODAPÉ -->
+    <!-- ================================================ -->
+    <footer class="border-t border-gray-200 mt-8 py-4 text-center text-sm text-gray-400">
+        Sistema de Gestão Patrimonial &mdash; Desenvolvido com Django &amp; Supabase
+    </footer>
+
+</body>
+</html>

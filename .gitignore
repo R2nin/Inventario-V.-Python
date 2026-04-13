@@ -1,0 +1,38 @@
+# ============================================================
+# Arquivos que NÃO devem ser enviados ao GitHub
+# ============================================================
+
+# Variáveis de ambiente (contém senhas!)
+.env
+
+# Arquivos compilados do Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Ambiente virtual Python
+venv/
+env/
+.venv/
+
+# Banco de dados SQLite (usado apenas em dev local simples)
+*.sqlite3
+db.sqlite3
+
+# Arquivos de mídia enviados por usuários
+media/
+
+# Arquivos estáticos coletados (gerados pelo collectstatic)
+staticfiles/
+
+# Configurações do editor de código
+.vscode/
+.idea/
+*.swp
+
+# Sistema operacional
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
