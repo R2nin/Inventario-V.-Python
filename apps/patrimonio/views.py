@@ -250,7 +250,10 @@ def patrimonio_criar(request):
     if request.method == 'POST':
         form = PatrimonioItemForm(request.POST)
         if form.is_valid():
-            item = form.save()
+            item = form.save(commit=False)
+            item.criado_por = request.user
+            item.criado_por_nome = request.user.get_full_name() or request.user.username
+            item.save()
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_CRIAR,
                 tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
@@ -963,6 +966,171 @@ def pagina_qrcode(request, pk):
         'item': item,
         'pagina_ativa': 'patrimonio',
     })
+
+
+# ==============================================================
+# LEITOR QR CODE — CONFERÊNCIA AVULSA
+# ==============================================================
+
+@login_required
+def leitor_qr_conferencia(request):
+    """Página de captura de patrimônios via leitor QR (teclado HID)."""
+    return render(request, 'patrimonio/leitor_qr_conferencia.html', {
+        'pagina_ativa': 'leitor_qr',
+    })
+
+
+@login_required
+def comparar_leitor_xls(request):
+    """
+    Recebe via POST:
+      - numeros_json: JSON com lista de números de patrimônio lidos pelo leitor
+      - arquivo_xls:  arquivo XLS/XLSX de referência para comparação
+
+    Localiza a coluna de patrimônio no XLS (busca por 'chapa' ou 'patrimônio'
+    no cabeçalho; se não encontrar, usa a primeira coluna).
+
+    Gera um XLS de resultado com 3 abas:
+      1. Encontrados    — lidos E presentes no XLS de referência
+      2. Somente Lidos  — lidos MAS ausentes no XLS de referência
+      3. Somente no XLS — no XLS de referência MAS não lidos
+    """
+    import json as _json
+    import io
+    import openpyxl
+    from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
+    import datetime
+
+    if request.method != 'POST':
+        return redirect('leitor_qr_conferencia')
+
+    # ── 1. Ler lista do leitor ────────────────────────────────────────────────
+    numeros_raw = request.POST.get('numeros_json', '[]')
+    try:
+        numeros_lidos = [str(n).strip() for n in _json.loads(numeros_raw) if str(n).strip()]
+    except _json.JSONDecodeError:
+        messages.error(request, 'Dados inválidos. Tente novamente.')
+        return redirect('leitor_qr_conferencia')
+
+    if not numeros_lidos:
+        messages.warning(request, 'Nenhum patrimônio capturado.')
+        return redirect('leitor_qr_conferencia')
+
+    # ── 2. Ler XLS de referência ──────────────────────────────────────────────
+    arquivo = request.FILES.get('arquivo_xls')
+    if not arquivo:
+        messages.error(request, 'Nenhum arquivo XLS enviado.')
+        return redirect('leitor_qr_conferencia')
+
+    try:
+        wb_ref = openpyxl.load_workbook(arquivo, read_only=True, data_only=True)
+        ws_ref = wb_ref.active
+    except Exception:
+        messages.error(request, 'Não foi possível ler o arquivo XLS enviado.')
+        return redirect('leitor_qr_conferencia')
+
+    # Detectar coluna de patrimônio: busca 'chapa' ou 'patrimônio' no cabeçalho
+    cabecalho = [str(c.value).strip().lower() if c.value is not None else '' for c in next(ws_ref.iter_rows())]
+    col_pat = 0  # índice 0-based; default = primeira coluna
+    for i, h in enumerate(cabecalho):
+        if 'chapa' in h or 'patrim' in h:
+            col_pat = i
+            break
+
+    # Ler todos os valores de patrimônio do XLS (a partir da linha 2)
+    xls_rows = []   # lista de listas com todos os valores da linha
+    for row in ws_ref.iter_rows(min_row=2, values_only=True):
+        val = row[col_pat] if len(row) > col_pat else None
+        if val is not None and str(val).strip():
+            xls_rows.append({'num': str(val).strip(), 'row': list(row)})
+
+    wb_ref.close()
+
+    xls_set    = {r['num'] for r in xls_rows}
+    lidos_set  = set(numeros_lidos)
+
+    encontrados   = [r for r in xls_rows if r['num'] in lidos_set]
+    so_xls        = [r for r in xls_rows if r['num'] not in lidos_set]
+    so_lidos      = [n for n in numeros_lidos if n not in xls_set]
+
+    # ── 3. Montar XLS de resultado ────────────────────────────────────────────
+    borda = Border(
+        left=Side(style='thin'), right=Side(style='thin'),
+        top=Side(style='thin'),  bottom=Side(style='thin'),
+    )
+    centro = Alignment(horizontal='center', vertical='center')
+
+    def estilo_cab(cel, cor_hex):
+        cel.font      = Font(bold=True, color='FFFFFF')
+        cel.fill      = PatternFill('solid', fgColor=cor_hex)
+        cel.alignment = centro
+        cel.border    = borda
+
+    def estilo_dado(cel, cor_hex, alinhar_centro=False):
+        cel.fill      = PatternFill('solid', fgColor=cor_hex)
+        cel.alignment = Alignment(vertical='center',
+                                  horizontal='center' if alinhar_centro else 'left')
+        cel.border    = borda
+
+    wb_out = openpyxl.Workbook()
+
+    # ── Aba 1: Encontrados ────────────────────────────────────────────────────
+    ws1 = wb_out.active
+    ws1.title = 'Encontrados'
+    ws1.append(['Nº Patrimônio'] + cabecalho)
+    estilo_cab(ws1.cell(1, 1), '1D6A27')
+    for i, h in enumerate(cabecalho, 2):
+        estilo_cab(ws1.cell(1, i), '1D6A27')
+
+    for r in encontrados:
+        ws1.append([r['num']] + r['row'])
+        for col in range(1, len(r['row']) + 2):
+            estilo_dado(ws1.cell(ws1.max_row, col), 'C6EFCE', col == 1)
+
+    ws1.column_dimensions['A'].width = 18
+
+    # ── Aba 2: Somente Lidos ──────────────────────────────────────────────────
+    ws2 = wb_out.create_sheet('Somente Lidos')
+    ws2.append(['Nº Patrimônio', 'Observação'])
+    estilo_cab(ws2.cell(1, 1), 'B45309')
+    estilo_cab(ws2.cell(1, 2), 'B45309')
+
+    for num in so_lidos:
+        ws2.append([num, 'Lido mas ausente no XLS de referência'])
+        estilo_dado(ws2.cell(ws2.max_row, 1), 'FFEB9C', True)
+        estilo_dado(ws2.cell(ws2.max_row, 2), 'FFEB9C')
+
+    ws2.column_dimensions['A'].width = 18
+    ws2.column_dimensions['B'].width = 40
+
+    # ── Aba 3: Somente no XLS ─────────────────────────────────────────────────
+    ws3 = wb_out.create_sheet('Somente no XLS')
+    ws3.append(['Nº Patrimônio'] + cabecalho)
+    estilo_cab(ws3.cell(1, 1), '1E3A8A')
+    for i in range(len(cabecalho)):
+        estilo_cab(ws3.cell(1, i + 2), '1E3A8A')
+
+    for r in so_xls:
+        ws3.append([r['num']] + r['row'])
+        for col in range(1, len(r['row']) + 2):
+            estilo_dado(ws3.cell(ws3.max_row, col), 'DBEAFE', col == 1)
+
+    ws3.column_dimensions['A'].width = 18
+
+    # ── 4. Retornar arquivo ───────────────────────────────────────────────────
+    buf = io.BytesIO()
+    wb_out.save(buf)
+    buf.seek(0)
+
+    data_hora    = datetime.datetime.now().strftime('%Y%m%d_%H%M')
+    nome_arquivo = f'conferencia_patrimonio_{data_hora}.xlsx'
+
+    response = HttpResponse(
+        buf.read(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    )
+    response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
+    return response
 
 
 # ==============================================================

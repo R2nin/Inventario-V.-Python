@@ -127,6 +127,18 @@
                         </svg>
                         Scanner
                     </a>
+
+                    <!-- Leitor QR — Conferência Avulsa -->
+                    <a href="{% url 'leitor_qr_conferencia' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1.5
+                              {% if pagina_ativa == 'leitor_qr' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}"
+                       title="Ler QR Codes e gerar relatório XLS">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                        </svg>
+                        Leitor QR
+                    </a>
                 </div>
 
                 <!-- Usuário logado + botão sair -->

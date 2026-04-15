@@ -134,11 +134,17 @@
             <div class="pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1">
                 <div class="flex justify-between">
                     <span>Cadastrado em:</span>
-                    <span>{{ item.criado_em|date:"d/m/Y" }}</span>
+                    <span>{{ item.criado_em|date:"d/m/Y H:i" }}</span>
                 </div>
+                {% if item.criado_por_nome %}
+                <div class="flex justify-between">
+                    <span>Cadastrado por:</span>
+                    <span class="font-medium text-gray-700">{{ item.criado_por_nome }}</span>
+                </div>
+                {% endif %}
                 <div class="flex justify-between">
                     <span>Última atualização:</span>
-                    <span>{{ item.atualizado_em|date:"d/m/Y" }}</span>
+                    <span>{{ item.atualizado_em|date:"d/m/Y H:i" }}</span>
                 </div>
             </div>
         </div>

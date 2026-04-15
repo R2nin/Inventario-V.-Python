@@ -80,6 +80,9 @@ urlpatterns = [
     # ----------------------------------------------------------
     # Leitor de QR Code via câmera
     path('scanner/',                              views.scanner_qrcode,   name='scanner_qrcode'),
+    # Leitor QR para conferência avulsa com exportação XLS
+    path('leitor-qr/',                            views.leitor_qr_conferencia, name='leitor_qr_conferencia'),
+    path('leitor-qr/comparar/',                   views.comparar_leitor_xls,   name='comparar_leitor_xls'),
     # Busca item pelo número de chapa (chamado após leitura do QR)
     path('patrimonio/chapa/<int:numero_chapa>/',  views.buscar_por_chapa, name='buscar_por_chapa'),
     # Retorna a imagem PNG do QR Code de um item

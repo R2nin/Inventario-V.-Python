@@ -73,6 +73,27 @@
                 <p id="info-text" class="text-sm text-gray-600">Aguardando câmera...</p>
             </div>
 
+            <!-- Zoom digital -->
+            <div class="mb-4">
+                <div class="flex justify-between items-center mb-1">
+                    <label class="text-xs font-medium text-gray-600">Zoom digital</label>
+                    <span id="zoom-label" class="text-xs text-blue-600 font-semibold">2×</span>
+                </div>
+                <input id="zoom-slider" type="range" min="1" max="5" step="0.5" value="2"
+                       class="w-full accent-blue-600">
+                <div class="flex justify-between text-xs text-gray-400 mt-0.5">
+                    <span>1× (amplo)</span><span>5× (máximo zoom)</span>
+                </div>
+            </div>
+
+            <!-- Preview do que o jsQR está processando -->
+            <div class="mb-4">
+                <p class="text-xs font-medium text-gray-600 mb-1">O que o scanner está vendo:</p>
+                <canvas id="preview-canvas"
+                        class="w-full rounded border border-gray-200 bg-gray-50"
+                        style="image-rendering: pixelated;"></canvas>
+            </div>
+
             <!-- Divisor -->
             <div class="flex items-center gap-3 my-4">
                 <div class="flex-1 border-t border-gray-200"></div>
@@ -105,7 +126,7 @@
         <ul class="text-xs text-blue-700 space-y-1 list-disc list-inside">
             <li>Mantenha o QR Code dentro da mira azul</li>
             <li>Garanta boa iluminação no local</li>
-            <li>Segure o dispositivo estável a ~15cm do QR Code</li>
+            <li>Segure o dispositivo estável a ~25–35cm do QR Code</li>
             <li>Se a câmera não abrir, use a busca manual abaixo</li>
         </ul>
     </div>
@@ -123,145 +144,168 @@
 
 <script>
 // ============================================================
-// SCANNER QR CODE - JavaScript
+// SCANNER QR CODE
 // ============================================================
-// Usa a biblioteca jsQR (carregada via CDN abaixo) para decodificar
-// QR Codes diretamente de frames do vídeo da câmera.
-//
-// Fluxo:
-//   1. Solicita acesso à câmera via getUserMedia()
-//   2. Exibe o vídeo em tempo real
-//   3. A cada frame, captura a imagem no canvas e processa com jsQR
-//   4. Se um QR Code for detectado, redireciona para a chapa correspondente
-// ============================================================
-
-// Referências aos elementos do DOM
-const video        = document.getElementById('video');
-const canvas       = document.getElementById('canvas');
-const ctx          = canvas.getContext('2d');
-const statusOverlay = document.getElementById('status-overlay');
-const statusText   = document.getElementById('status-text');
+const video          = document.getElementById('video');
+const canvas         = document.getElementById('canvas');
+const ctx            = canvas.getContext('2d');
+const statusOverlay  = document.getElementById('status-overlay');
 const successOverlay = document.getElementById('success-overlay');
 const chapaDetectada = document.getElementById('chapa-detectada');
-const statusDot    = document.getElementById('status-dot');
-const infoText     = document.getElementById('info-text');
-const formManual   = document.getElementById('form-manual');
-const inputChapa   = document.getElementById('input-chapa');
+const statusDot      = document.getElementById('status-dot');
+const infoText       = document.getElementById('info-text');
+const formManual     = document.getElementById('form-manual');
+const inputChapa     = document.getElementById('input-chapa');
+const zoomSlider     = document.getElementById('zoom-slider');
+const zoomLabel      = document.getElementById('zoom-label');
+const previewCanvas  = document.getElementById('preview-canvas');
+const previewCtx     = previewCanvas.getContext('2d');
 
-let escaneando = true;  // Controla se deve continuar escaneando
+// Canvas de processamento interno (não visível)
+const procCanvas = document.createElement('canvas');
+procCanvas.width = 512;
+procCanvas.height = 512;
+const procCtx = procCanvas.getContext('2d');
 
-// --- Busca manual por número de chapa ---
+let escaneando = true;
+let zoomAtual = 2;
+
+// --- Controle do zoom ---
+zoomSlider.addEventListener('input', () => {
+    zoomAtual = parseFloat(zoomSlider.value);
+    zoomLabel.textContent = zoomAtual + '×';
+});
+
+// --- Busca manual ---
 formManual.addEventListener('submit', function(e) {
     e.preventDefault();
     const chapa = inputChapa.value.trim();
     if (chapa && parseInt(chapa) > 0) {
-        // Redireciona para a URL de busca por chapa
         window.location.href = '/patrimonio/chapa/' + chapa + '/';
     }
 });
 
-// --- Inicia a câmera ---
+// --- Inicia a câmera (sem facingMode para garantir compatibilidade com webcam) ---
 async function iniciarCamera() {
-    try {
-        // getUserMedia: solicita acesso à câmera do dispositivo
-        // 'environment' = câmera traseira (ideal para escanear)
-        // 'user' = câmera frontal (selfie)
-        const stream = await navigator.mediaDevices.getUserMedia({
-            video: {
-                facingMode: 'environment',  // Prefere câmera traseira
-                width: { ideal: 1280 },
-                height: { ideal: 720 },
-            }
-        });
+    // Tenta primeiro com alta resolução; se falhar, cai para padrão
+    const tentativas = [
+        { width: { ideal: 1920 }, height: { ideal: 1080 } },
+        { width: { ideal: 1280 }, height: { ideal: 720 } },
+        true  // qualquer câmera disponível
+    ];
 
-        video.srcObject = stream;
-        video.setAttribute('playsinline', true);
-
-        video.onloadedmetadata = () => {
-            // Câmera pronta: esconde o overlay e começa a escanear
-            statusOverlay.style.display = 'none';
-            statusDot.className = 'w-3 h-3 rounded-full bg-green-400 flex-shrink-0';
-            infoText.textContent = 'Câmera ativa — aponte para o QR Code da chapa';
-            requestAnimationFrame(escanearFrame);
-        };
-
-    } catch (erro) {
-        // Câmera negada ou não disponível
-        console.error('Erro ao acessar câmera:', erro);
-        statusText.textContent = 'Câmera não disponível';
-        statusDot.className = 'w-3 h-3 rounded-full bg-red-400 flex-shrink-0';
-        infoText.textContent = 'Câmera indisponível. Use a busca manual abaixo.';
-
-        // Mantém o overlay com mensagem de erro
-        statusOverlay.innerHTML = `
-            <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
-            </svg>
-            <p class="text-sm font-medium text-center px-6">
-                Câmera bloqueada ou não disponível.<br>
-                Use a busca manual abaixo.
-            </p>
-        `;
+    for (const constraints of tentativas) {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ video: constraints });
+            video.srcObject = stream;
+            video.setAttribute('playsinline', true);
+            video.onloadedmetadata = () => {
+                statusOverlay.style.display = 'none';
+                statusDot.className = 'w-3 h-3 rounded-full bg-green-400 flex-shrink-0';
+                infoText.textContent = `Câmera ${video.videoWidth}×${video.videoHeight} — aponte o QR Code para a mira`;
+                requestAnimationFrame(escanearFrame);
+            };
+            return;
+        } catch (e) {
+            console.warn('Tentativa falhou:', constraints, e);
+        }
     }
+
+    // Todas falharam
+    statusDot.className = 'w-3 h-3 rounded-full bg-red-400 flex-shrink-0';
+    infoText.textContent = 'Câmera indisponível. Use a busca manual abaixo.';
+    statusOverlay.innerHTML = `
+        <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
+        </svg>
+        <p class="text-sm font-medium text-center px-6">
+            Câmera bloqueada ou não disponível.<br>
+            Use a busca manual abaixo.
+        </p>
+    `;
 }
 
-// --- Processa cada frame do vídeo ---
+// --- Extrai uma região central do vídeo com o zoom solicitado ---
+// Retorna { x, y, size } em coordenadas do source do vídeo.
+function regiaoZoom(vw, vh, zoom) {
+    // Região visível com object-cover em container quadrado
+    let visSize, visX, visY;
+    if (vw >= vh) {
+        visSize = vh;
+        visX = (vw - vh) / 2;
+        visY = 0;
+    } else {
+        visSize = vw;
+        visX = 0;
+        visY = (vh - vw) / 2;
+    }
+    // Zoom divide o tamanho da região
+    const size = visSize / zoom;
+    return {
+        x: visX + (visSize - size) / 2,
+        y: visY + (visSize - size) / 2,
+        size,
+    };
+}
+
+// --- Tenta decodificar numa região específica ---
+function tentarDecodificar(vw, vh, zoom) {
+    const { x, y, size } = regiaoZoom(vw, vh, zoom);
+    procCtx.drawImage(video, x, y, size, size, 0, 0, 512, 512);
+    const imageData = procCtx.getImageData(0, 0, 512, 512);
+    return jsQR(imageData.data, 512, 512, { inversionAttempts: 'attemptBoth' });
+}
+
+// Contador para atualizar o preview com menos frequência (a cada 10 frames)
+let frameCount = 0;
+
+// --- Loop principal ---
 function escanearFrame() {
     if (!escaneando) return;
 
-    // Só processa se o vídeo estiver rodando
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        // Ajusta o canvas ao tamanho do vídeo
-        canvas.height = video.videoHeight;
-        canvas.width  = video.videoWidth;
+        const vw = video.videoWidth;
+        const vh = video.videoHeight;
 
-        // Desenha o frame atual no canvas
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        // Tenta com o zoom do slider; se não detectar, tenta também 1× (frame inteiro)
+        let codigo = tentarDecodificar(vw, vh, zoomAtual);
+        if (!codigo && zoomAtual !== 1) {
+            codigo = tentarDecodificar(vw, vh, 1);
+        }
 
-        // Pega os dados de pixel do canvas para o jsQR processar
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-        // jsQR tenta decodificar o QR Code na imagem
-        const codigo = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',  // Não tenta inverter cores (mais rápido)
-        });
+        // Atualiza o preview a cada 10 frames para não travar a UI
+        frameCount++;
+        if (frameCount % 10 === 0) {
+            const { x, y, size } = regiaoZoom(vw, vh, zoomAtual);
+            previewCanvas.width  = 256;
+            previewCanvas.height = 256;
+            previewCtx.drawImage(video, x, y, size, size, 0, 0, 256, 256);
+        }
 
         if (codigo) {
-            // QR Code encontrado! O valor decodificado está em codigo.data
             const valorQR = codigo.data.trim();
-            escaneando = false;  // Para de escanear
+            escaneando = false;
 
-            // Verifica se o valor é um número (número de chapa)
             const chapa = parseInt(valorQR);
             if (!isNaN(chapa) && chapa > 0) {
-                // Mostra o overlay de sucesso
                 chapaDetectada.textContent = 'Chapa: ' + chapa;
                 successOverlay.style.display = 'flex';
-
-                // Aguarda 1.5s e redireciona
                 setTimeout(() => {
                     window.location.href = '/patrimonio/chapa/' + chapa + '/';
                 }, 1500);
             } else {
-                // QR Code encontrado mas não é um número de chapa válido
-                infoText.textContent = 'QR Code inválido: "' + valorQR + '". Esperado: número da chapa.';
+                infoText.textContent = 'QR inválido: "' + valorQR + '". Esperado: número da chapa.';
                 statusDot.className = 'w-3 h-3 rounded-full bg-yellow-400 flex-shrink-0';
-                // Continua escaneando após 2 segundos
-                setTimeout(() => {
-                    escaneando = true;
-                    requestAnimationFrame(escanearFrame);
-                }, 2000);
+                setTimeout(() => { escaneando = true; requestAnimationFrame(escanearFrame); }, 2000);
                 return;
             }
         }
     }
 
-    // Agenda o próximo frame (~60fps)
     requestAnimationFrame(escanearFrame);
 }
 
-// Inicia tudo quando a página carrega
 iniciarCamera();
 </script>
 

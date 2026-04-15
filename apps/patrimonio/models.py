@@ -141,6 +141,17 @@ class PatrimonioItem(models.Model):
     # --- Descrição ---
     descricao       = models.TextField(blank=True, verbose_name='Descrição / Observações')
 
+    # --- Rastreabilidade ---
+    criado_por      = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='itens_criados',
+        verbose_name='Criado por'
+    )
+    criado_por_nome = models.CharField(max_length=255, blank=True, verbose_name='Nome de quem cadastrou')
+
     # --- Controle automático de datas ---
     criado_em       = models.DateTimeField(auto_now_add=True, verbose_name='Criado em')
     atualizado_em   = models.DateTimeField(auto_now=True, verbose_name='Atualizado em')
