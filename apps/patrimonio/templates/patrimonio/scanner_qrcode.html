@@ -325,10 +325,11 @@ function escanearFrame() {
         }
 
         if (codigo) {
+            // QR Code pode conter "chapa\tdata\tdescricao" — extrai só o primeiro campo
             const valorQR = codigo.data.trim();
             escaneando = false;
 
-            const chapa = parseInt(valorQR);
+            const chapa = parseInt(valorQR.split(/[\t\s,;|]+/)[0]);
             if (!isNaN(chapa) && chapa > 0) {
                 chapaDetectada.textContent = 'Chapa: ' + chapa;
                 successOverlay.style.display = 'flex';
