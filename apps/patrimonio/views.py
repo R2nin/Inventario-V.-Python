@@ -377,13 +377,67 @@ def patrimonio_importar(request):
             form = ImportacaoForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
-                    itens_preview = processar_arquivo(request.FILES['arquivo'])
-                    # Salva os dados na sessão para confirmar depois
-                    request.session['importacao_dados'] = [
-                        {k: str(v) if v is not None else None for k, v in item.items()}
-                        for item in itens_preview
-                    ]
+                    import os, uuid, openpyxl as _opx
+
+                    # Salva o arquivo em disco (evita sessão pesada)
+                    tmp_dir = Path(settings.MEDIA_ROOT) / 'tmp_import'
+                    tmp_dir.mkdir(parents=True, exist_ok=True)
+                    ext = Path(request.FILES['arquivo'].name).suffix
+                    tmp_nome = f"{uuid.uuid4().hex}{ext}"
+                    tmp_path = tmp_dir / tmp_nome
+                    with open(tmp_path, 'wb') as f:
+                        for chunk in request.FILES['arquivo'].chunks():
+                            f.write(chunk)
+
+                    # Preview
+                    with open(tmp_path, 'rb') as f:
+                        itens_preview = processar_arquivo(f)
+                    request.session['importacao_tmp'] = str(tmp_path)
                     preview = itens_preview
+
+                    # Aproveita o mesmo arquivo para gerar o XLS de referência
+                    try:
+                        mapa_status = {
+                            'ótimo': 'ativo', 'otimo': 'ativo', 'bom': 'ativo',
+                            'regular': 'manutencao',
+                            'péssimo': 'baixado', 'pessimo': 'baixado', 'baixado': 'baixado',
+                        }
+                        wb_ref = _opx.load_workbook(tmp_path, data_only=True)
+                        ws_ref = wb_ref.active
+                        dados_ref = {}
+                        for row in ws_ref.iter_rows(min_row=2, values_only=True):
+                            chapa_raw = row[0]
+                            if not chapa_raw:
+                                continue
+                            try:
+                                chapa_key = str(int(float(chapa_raw)))
+                            except (ValueError, TypeError):
+                                continue
+                            data_raw = row[1]
+                            if hasattr(data_raw, 'strftime'):
+                                data_iso = data_raw.strftime('%Y-%m-%d')
+                            elif data_raw:
+                                try:
+                                    from datetime import datetime as _dt
+                                    data_iso = _dt.strptime(str(data_raw).strip(), '%d/%m/%Y').strftime('%Y-%m-%d')
+                                except Exception:
+                                    data_iso = ''
+                            else:
+                                data_iso = ''
+                            descricao = str(row[9]).strip() if len(row) > 9 and row[9] else ''
+                            local     = str(row[4]).strip() if len(row) > 4 and row[4] else ''
+                            estado2   = str(row[6]).strip().lower() if len(row) > 6 and row[6] else ''
+                            dados_ref[chapa_key] = {
+                                'nome': descricao,
+                                'data': data_iso,
+                                'local': local,
+                                'status': mapa_status.get(estado2, ''),
+                            }
+                        XLS_REF_JSON.parent.mkdir(parents=True, exist_ok=True)
+                        XLS_REF_JSON.write_text(json.dumps(dados_ref, ensure_ascii=False), encoding='utf-8')
+                    except Exception:
+                        pass  # Falha no ref não impede o import
+
                     messages.info(request, f'{len(itens_preview)} itens encontrados. Revise e confirme a importação.')
                 except ValueError as e:
                     messages.error(request, f'Erro ao processar arquivo: {e}')
@@ -393,10 +447,16 @@ def patrimonio_importar(request):
             import datetime
             from decimal import Decimal
 
-            dados = request.session.get('importacao_dados', [])
-            if not dados:
-                messages.error(request, 'Nenhum dado para importar. Envie o arquivo novamente.')
+            tmp_path_str = request.session.get('importacao_tmp')
+            if not tmp_path_str or not Path(tmp_path_str).exists():
+                messages.error(request, 'Arquivo temporário não encontrado. Envie o arquivo novamente.')
                 return redirect('patrimonio_importar')
+
+            with open(tmp_path_str, 'rb') as f:
+                dados = processar_arquivo(f)
+
+            # Converte campos para string (como estava na sessão antes)
+            dados = [{k: str(v) if v is not None else None for k, v in item.items()} for item in dados]
 
             erros_import = []
 
@@ -468,8 +528,12 @@ def patrimonio_importar(request):
             criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
             salvos = len(criados)
 
-            # Limpa a sessão
-            del request.session['importacao_dados']
+            # Limpa o arquivo temporário e a sessão
+            try:
+                Path(tmp_path_str).unlink(missing_ok=True)
+            except Exception:
+                pass
+            request.session.pop('importacao_tmp', None)
 
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_IMPORTAR,
