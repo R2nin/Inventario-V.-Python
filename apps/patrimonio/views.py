@@ -26,7 +26,7 @@ from django.contrib import messages
 from django.db.models import Q, Sum, Count
 from django.core.paginator import Paginator
 
-from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria
+from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria, XLSReferenciaItem
 from .forms import (
     LoginForm, PatrimonioItemForm, FornecedorForm,
     LocalizacaoForm, UsuarioForm, ImportacaoForm, BuscaPatrimonioForm
@@ -1158,13 +1158,7 @@ def carregar_xls_referencia(request):
     import openpyxl
 
     # Informa quantos itens já estão carregados (se houver)
-    total_carregado = 0
-    if XLS_REF_JSON.exists():
-        try:
-            dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
-            total_carregado = len(dados)
-        except Exception:
-            pass
+    total_carregado = XLSReferenciaItem.objects.count()
 
     if request.method == 'POST' and request.FILES.get('arquivo'):
         arquivo = request.FILES['arquivo']
@@ -1184,51 +1178,47 @@ def carregar_xls_referencia(request):
                 'baixado':  'baixado',
             }
 
-            dados = {}
+            objetos = []
             for row in ws.iter_rows(min_row=2, values_only=True):
                 chapa_raw = row[0]   # Patrim
                 if not chapa_raw:
                     continue
                 try:
-                    chapa = str(int(float(chapa_raw)))
+                    chapa_int = int(float(chapa_raw))
                 except (ValueError, TypeError):
                     continue
 
                 # Data de aquisição — pode vir como datetime ou string
                 data_raw = row[1]
                 if hasattr(data_raw, 'strftime'):
-                    data_iso = data_raw.strftime('%Y-%m-%d')   # formato para input date
+                    data_iso = data_raw.strftime('%Y-%m-%d')
                 elif data_raw:
-                    # Tenta converter string "dd/mm/aaaa"
                     try:
                         from datetime import datetime as dt
-                        d = dt.strptime(str(data_raw).strip(), '%d/%m/%Y')
-                        data_iso = d.strftime('%Y-%m-%d')
+                        data_iso = dt.strptime(str(data_raw).strip(), '%d/%m/%Y').strftime('%Y-%m-%d')
                     except Exception:
                         data_iso = ''
                 else:
                     data_iso = ''
 
-                descricao = str(row[9]).strip() if row[9] else ''   # Descrição2
-                local     = str(row[4]).strip() if row[4] else ''   # Local 2
-                estado2   = str(row[6]).strip().lower() if row[6] else ''
+                descricao = str(row[2]).strip() if len(row) > 2 and row[2] else ''  # Descricao
+                local     = str(row[4]).strip() if len(row) > 4 and row[4] else ''  # Local 2
+                estado2   = str(row[6]).strip().lower() if len(row) > 6 and row[6] else ''
                 status    = mapa_status.get(estado2, '')
 
-                dados[chapa] = {
-                    'nome':    descricao,
-                    'data':    data_iso,
-                    'local':   local,
-                    'status':  status,
-                }
+                objetos.append(XLSReferenciaItem(
+                    numero_chapa=chapa_int,
+                    nome=descricao,
+                    data_aquisicao=data_iso,
+                    local=local,
+                    status=status,
+                ))
 
-            # Garante que a pasta media existe e salva o JSON
-            XLS_REF_JSON.parent.mkdir(parents=True, exist_ok=True)
-            XLS_REF_JSON.write_text(
-                json.dumps(dados, ensure_ascii=False),
-                encoding='utf-8'
-            )
+            # Substitui todos os dados de uma vez
+            XLSReferenciaItem.objects.all().delete()
+            XLSReferenciaItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
 
-            messages.success(request, f'XLS carregado com sucesso: {len(dados)} itens disponíveis para auto-preenchimento.')
+            messages.success(request, f'XLS carregado com sucesso: {len(objetos)} itens disponíveis para auto-preenchimento.')
             return redirect('patrimonio_criar')
 
         except Exception as e:
@@ -1244,18 +1234,24 @@ def carregar_xls_referencia(request):
 def buscar_dados_xls(request, chapa):
     """
     API JSON chamada pelo JavaScript do formulário.
-    Retorna os dados do item pelo número de chapa, consultando o JSON gerado.
+    Retorna os dados do item pelo número de chapa, consultando o banco.
 
     URL: /patrimonio/xls-ref/<chapa>/
     """
-    if not XLS_REF_JSON.exists():
+    # Verifica se há dados carregados (para o banner)
+    if chapa == 0 and not XLSReferenciaItem.objects.exists():
         return JsonResponse({'encontrado': False, 'erro': 'XLS não carregado'})
 
     try:
-        dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
-        item = dados.get(str(chapa))
+        item = XLSReferenciaItem.objects.filter(numero_chapa=chapa).first()
         if item:
-            return JsonResponse({'encontrado': True, **item})
+            return JsonResponse({
+                'encontrado': True,
+                'nome':   item.nome,
+                'data':   item.data_aquisicao,
+                'local':  item.local,
+                'status': item.status,
+            })
         return JsonResponse({'encontrado': False})
     except Exception as e:
         return JsonResponse({'encontrado': False, 'erro': str(e)})
@@ -1266,10 +1262,16 @@ def buscar_dados_xls(request, chapa):
 # ==============================================================
 
 def _carregar_xls_dados():
-    """Lê o JSON gerado pelo upload do XLS de referência."""
-    if not XLS_REF_JSON.exists():
-        return {}
-    return json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
+    """Retorna os dados do XLS de referência como dict {chapa: {...}}."""
+    return {
+        str(item.numero_chapa): {
+            'nome':   item.nome,
+            'data':   item.data_aquisicao,
+            'local':  item.local,
+            'status': item.status,
+        }
+        for item in XLSReferenciaItem.objects.all()
+    }
 
 
 @login_required

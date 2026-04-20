@@ -286,3 +286,26 @@ class LogAuditoria(models.Model):
             entidade_id=str(entidade_id),
             entidade_nome=entidade_nome,
         )
+
+
+# ============================================================
+# XLS DE REFERÊNCIA — dados persistidos no banco
+# ============================================================
+class XLSReferenciaItem(models.Model):
+    """
+    Guarda os dados extraídos do XLS de referência para auto-preenchimento.
+    Substitui o arquivo xls_referencia.json (que era apagado no redeploy).
+    """
+    numero_chapa    = models.IntegerField(unique=True, verbose_name='Número da Chapa')
+    nome            = models.CharField(max_length=500, blank=True, verbose_name='Nome/Descrição')
+    data_aquisicao  = models.CharField(max_length=10, blank=True, verbose_name='Data (ISO)')
+    local           = models.CharField(max_length=255, blank=True, verbose_name='Local 2')
+    status          = models.CharField(max_length=20, blank=True, verbose_name='Status')
+
+    class Meta:
+        verbose_name = 'Item XLS Referência'
+        verbose_name_plural = 'Itens XLS Referência'
+
+    def __str__(self):
+        return f'[{self.numero_chapa}] {self.nome}'
+
