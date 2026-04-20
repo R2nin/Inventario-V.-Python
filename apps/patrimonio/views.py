@@ -390,55 +390,66 @@ def patrimonio_importar(request):
 
         # Botão "confirmar" - salva os itens no banco
         elif 'confirmar' in request.POST:
+            import datetime
+            from decimal import Decimal
+
             dados = request.session.get('importacao_dados', [])
             if not dados:
                 messages.error(request, 'Nenhum dado para importar. Envie o arquivo novamente.')
                 return redirect('patrimonio_importar')
 
-            salvos = 0
             erros_import = []
 
+            # --- 1. Pré-carrega chapas já existentes (1 query só) ---
+            chapas_existentes = set(
+                PatrimonioItem.objects.values_list('numero_chapa', flat=True)
+            )
+
+            # --- 2. Pré-cria/carrega todas as localizações únicas (batch) ---
+            nomes_loc = set(
+                d.get('localizacao_nome') for d in dados
+                if d.get('localizacao_nome') and d.get('localizacao_nome') != 'None'
+            )
+            for nome_loc in nomes_loc:
+                Localizacao.objects.get_or_create(nome=nome_loc)
+            cache_loc = {loc.nome: loc for loc in Localizacao.objects.all()}
+
+            # --- 3. Monta a lista de objetos sem tocar no banco ---
+            proxima_chapa = PatrimonioItem.proximo_numero_chapa()
+            objetos = []
             for item_dict in dados:
                 try:
-                    # Converte de volta os tipos necessários
-                    numero_chapa = item_dict.get('numero_chapa')
-                    if numero_chapa and numero_chapa != 'None':
-                        numero_chapa = int(float(numero_chapa))
-                        # Se a chapa já existe, pula este item
-                        if PatrimonioItem.objects.filter(numero_chapa=numero_chapa).exists():
+                    numero_chapa_raw = item_dict.get('numero_chapa')
+                    if numero_chapa_raw and numero_chapa_raw != 'None':
+                        numero_chapa = int(float(numero_chapa_raw))
+                        if numero_chapa in chapas_existentes:
                             erros_import.append(f'Chapa {numero_chapa} já existe - pulado.')
                             continue
+                        chapas_existentes.add(numero_chapa)
                     else:
-                        # Gera número de chapa automaticamente
-                        numero_chapa = PatrimonioItem.proximo_numero_chapa()
+                        numero_chapa = proxima_chapa
+                        proxima_chapa += 1
 
-                    # Resolve a localização pelo nome (cria se não existir)
-                    localizacao = None
                     loc_nome = item_dict.get('localizacao_nome')
-                    if loc_nome and loc_nome != 'None':
-                        localizacao, _ = Localizacao.objects.get_or_create(nome=loc_nome)
+                    localizacao = cache_loc.get(loc_nome) if loc_nome and loc_nome != 'None' else None
 
-                    # Converte valor
                     valor = None
                     val_str = item_dict.get('valor')
                     if val_str and val_str != 'None':
                         try:
-                            from decimal import Decimal
                             valor = Decimal(val_str)
                         except Exception:
                             pass
 
-                    # Converte data
                     data = None
                     data_str = item_dict.get('data_aquisicao')
                     if data_str and data_str != 'None':
-                        import datetime
                         try:
                             data = datetime.date.fromisoformat(data_str)
                         except Exception:
                             pass
 
-                    PatrimonioItem.objects.create(
+                    objetos.append(PatrimonioItem(
                         numero_chapa=numero_chapa,
                         nome=item_dict.get('nome', '') or '',
                         categoria=item_dict.get('categoria', '') or '',
@@ -448,11 +459,14 @@ def patrimonio_importar(request):
                         valor=valor,
                         status=item_dict.get('status', 'ativo') or 'ativo',
                         descricao=item_dict.get('descricao', '') or '',
-                    )
-                    salvos += 1
+                    ))
 
                 except Exception as e:
                     erros_import.append(f'Linha {item_dict.get("_linha", "?")}: {e}')
+
+            # --- 4. Insere tudo de uma vez (bulk_create) ---
+            PatrimonioItem.objects.bulk_create(objetos, batch_size=500)
+            salvos = len(objetos)
 
             # Limpa a sessão
             del request.session['importacao_dados']
@@ -468,7 +482,7 @@ def patrimonio_importar(request):
             if salvos:
                 messages.success(request, f'{salvos} itens importados com sucesso!')
             if erros_import:
-                for e in erros_import[:5]:  # Exibe só os primeiros 5 erros
+                for e in erros_import[:5]:
                     messages.warning(request, e)
 
             return redirect('patrimonio_lista')
