@@ -141,7 +141,7 @@
                     </a>
                 </div>
 
-                <!-- Usuário logado + botão sair -->
+                <!-- Lado direito: usuário + sair + botão hamburguer (mobile) -->
                 <div class="flex items-center gap-3">
                     <span class="text-sm text-blue-200 hidden sm:block">
                         {{ user.get_full_name|default:user.username }}
@@ -153,7 +153,95 @@
                        class="px-3 py-1.5 bg-blue-900 hover:bg-red-600 rounded-md text-sm transition-colors">
                         Sair
                     </a>
+
+                    <!-- Botão hamburguer — visível só em mobile -->
+                    <button id="btn-menu-mobile"
+                            class="md:hidden p-2 rounded-md text-blue-100 hover:bg-blue-700 focus:outline-none"
+                            aria-label="Abrir menu">
+                        <!-- Ícone hamburguer -->
+                        <svg id="icon-hamburger" class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M4 6h16M4 12h16M4 18h16"/>
+                        </svg>
+                        <!-- Ícone X (fechar) -->
+                        <svg id="icon-close" class="w-6 h-6 hidden" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- ================================================ -->
+        <!-- MENU MOBILE (dropdown) — oculto por padrão       -->
+        <!-- ================================================ -->
+        <div id="menu-mobile" class="hidden md:hidden border-t border-blue-700">
+            <div class="px-2 py-3 space-y-1">
+
+                <!-- Usuário logado (só aparece no mobile) -->
+                <div class="px-3 py-2 text-sm text-blue-300 border-b border-blue-700 mb-2">
+                    {{ user.get_full_name|default:user.username }}
+                    {% if user.is_staff %}
+                        <span class="ml-1 px-1.5 py-0.5 bg-yellow-500 text-yellow-900 text-xs rounded font-bold">ADMIN</span>
+                    {% endif %}
+                </div>
+
+                <a href="{% url 'dashboard' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'dashboard' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Dashboard
+                </a>
+                <a href="{% url 'patrimonio_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'patrimonio' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Patrimônio
+                </a>
+                <a href="{% url 'fornecedor_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'fornecedores' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Fornecedores
+                </a>
+                <a href="{% url 'localizacao_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'localizacoes' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Localizações
+                </a>
+                {% if user.is_staff %}
+                <a href="{% url 'usuario_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'usuarios' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Usuários
+                </a>
+                {% endif %}
+                <a href="{% url 'log_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'logs' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Logs
+                </a>
+                <a href="{% url 'conferencia_inicio' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'conferencia' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Conferência
+                </a>
+                <a href="{% url 'scanner_qrcode' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2
+                          {% if pagina_ativa == 'scanner' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1-1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/>
+                    </svg>
+                    Scanner QR
+                </a>
+                <a href="{% url 'leitor_qr_conferencia' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2
+                          {% if pagina_ativa == 'leitor_qr' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01"/>
+                    </svg>
+                    Leitor QR
+                </a>
             </div>
         </div>
     </nav>
@@ -194,6 +282,23 @@
     <footer class="border-t border-gray-200 mt-8 py-4 text-center text-sm text-gray-400">
         Sistema de Gestão Patrimonial &mdash; Desenvolvido com Django &amp; Supabase
     </footer>
+
+    <!-- ================================================ -->
+    <!-- SCRIPT DO MENU MOBILE                            -->
+    <!-- ================================================ -->
+    <script>
+        const btnMenu = document.getElementById('btn-menu-mobile');
+        const menuMobile = document.getElementById('menu-mobile');
+        const iconHamburger = document.getElementById('icon-hamburger');
+        const iconClose = document.getElementById('icon-close');
+
+        btnMenu.addEventListener('click', () => {
+            const aberto = !menuMobile.classList.contains('hidden');
+            menuMobile.classList.toggle('hidden', aberto);
+            iconHamburger.classList.toggle('hidden', !aberto);
+            iconClose.classList.toggle('hidden', aberto);
+        });
+    </script>
 
 </body>
 </html>
