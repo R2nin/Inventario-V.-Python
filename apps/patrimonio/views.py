@@ -377,98 +377,125 @@ def patrimonio_importar(request):
             form = ImportacaoForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
-                    itens_preview = processar_arquivo(request.FILES['arquivo'])
-                    # Salva os dados na sessão para confirmar depois
-                    request.session['importacao_dados'] = [
-                        {k: str(v) if v is not None else None for k, v in item.items()}
-                        for item in itens_preview
-                    ]
+                    import uuid
+                    from pathlib import Path
+                    from django.conf import settings
+
+                    # Salva o arquivo em disco para reler no confirmar (evita sessão pesada)
+                    tmp_dir = Path(settings.MEDIA_ROOT) / 'tmp_import'
+                    tmp_dir.mkdir(parents=True, exist_ok=True)
+                    ext = Path(request.FILES['arquivo'].name).suffix
+                    tmp_path = tmp_dir / f"{uuid.uuid4().hex}{ext}"
+                    with open(tmp_path, 'wb') as f:
+                        for chunk in request.FILES['arquivo'].chunks():
+                            f.write(chunk)
+
+                    with open(tmp_path, 'rb') as f:
+                        itens_preview = processar_arquivo(f)
+
+                    request.session['importacao_tmp'] = str(tmp_path)
                     preview = itens_preview
                     messages.info(request, f'{len(itens_preview)} itens encontrados. Revise e confirme a importação.')
-                except ValueError as e:
+                except Exception as e:
                     messages.error(request, f'Erro ao processar arquivo: {e}')
 
         # Botão "confirmar" - salva os itens no banco
         elif 'confirmar' in request.POST:
-            dados = request.session.get('importacao_dados', [])
-            if not dados:
-                messages.error(request, 'Nenhum dado para importar. Envie o arquivo novamente.')
+            import datetime
+            from decimal import Decimal
+            from pathlib import Path
+
+            tmp_path_str = request.session.get('importacao_tmp')
+            if not tmp_path_str or not Path(tmp_path_str).exists():
+                messages.error(request, 'Arquivo temporário não encontrado. Envie o arquivo novamente.')
                 return redirect('patrimonio_importar')
 
-            salvos = 0
+            try:
+                with open(tmp_path_str, 'rb') as f:
+                    dados = processar_arquivo(f)
+            except Exception as e:
+                messages.error(request, f'Erro ao reler o arquivo: {e}')
+                return redirect('patrimonio_importar')
+
             erros_import = []
 
-            for item_dict in dados:
+            # Pré-carrega chapas existentes (1 query)
+            chapas_existentes = set(PatrimonioItem.objects.values_list('numero_chapa', flat=True))
+
+            # Pré-cria localizações únicas (batch)
+            nomes_loc = {
+                item.get('localizacao_nome') for item in dados
+                if item.get('localizacao_nome')
+            }
+            for nome_loc in nomes_loc:
+                Localizacao.objects.get_or_create(nome=nome_loc)
+            cache_loc = {loc.nome: loc for loc in Localizacao.objects.all()}
+
+            # Monta objetos sem tocar no banco
+            proxima_chapa = PatrimonioItem.proximo_numero_chapa()
+            objetos = []
+            for item in dados:
                 try:
-                    # Converte de volta os tipos necessários
-                    numero_chapa = item_dict.get('numero_chapa')
-                    if numero_chapa and numero_chapa != 'None':
-                        numero_chapa = int(float(numero_chapa))
-                        # Se a chapa já existe, pula este item
-                        if PatrimonioItem.objects.filter(numero_chapa=numero_chapa).exists():
-                            erros_import.append(f'Chapa {numero_chapa} já existe - pulado.')
+                    chapa = item.get('numero_chapa')
+                    if chapa:
+                        if chapa in chapas_existentes:
+                            erros_import.append(f'Chapa {chapa} já existe - pulado.')
                             continue
+                        chapas_existentes.add(chapa)
                     else:
-                        # Gera número de chapa automaticamente
-                        numero_chapa = PatrimonioItem.proximo_numero_chapa()
+                        chapa = proxima_chapa
+                        proxima_chapa += 1
 
-                    # Resolve a localização pelo nome (cria se não existir)
-                    localizacao = None
-                    loc_nome = item_dict.get('localizacao_nome')
-                    if loc_nome and loc_nome != 'None':
-                        localizacao, _ = Localizacao.objects.get_or_create(nome=loc_nome)
+                    loc_nome = item.get('localizacao_nome')
+                    localizacao = cache_loc.get(loc_nome) if loc_nome else None
 
-                    # Converte valor
-                    valor = None
-                    val_str = item_dict.get('valor')
-                    if val_str and val_str != 'None':
+                    data_val = item.get('data_aquisicao')
+                    if isinstance(data_val, str):
                         try:
-                            from decimal import Decimal
-                            valor = Decimal(val_str)
+                            data_val = datetime.date.fromisoformat(data_val)
                         except Exception:
-                            pass
+                            data_val = None
 
-                    # Converte data
-                    data = None
-                    data_str = item_dict.get('data_aquisicao')
-                    if data_str and data_str != 'None':
-                        import datetime
-                        try:
-                            data = datetime.date.fromisoformat(data_str)
-                        except Exception:
-                            pass
-
-                    PatrimonioItem.objects.create(
-                        numero_chapa=numero_chapa,
-                        nome=item_dict.get('nome', '') or '',
-                        categoria=item_dict.get('categoria', '') or '',
+                    objetos.append(PatrimonioItem(
+                        numero_chapa=chapa,
+                        nome=item.get('nome', '') or '',
+                        categoria=item.get('categoria', '') or '',
                         localizacao=localizacao,
-                        responsavel=item_dict.get('responsavel', '') or '',
-                        data_aquisicao=data,
-                        valor=valor,
-                        status=item_dict.get('status', 'ativo') or 'ativo',
-                        descricao=item_dict.get('descricao', '') or '',
-                    )
-                    salvos += 1
-
+                        responsavel=item.get('responsavel', '') or '',
+                        data_aquisicao=data_val,
+                        valor=item.get('valor'),
+                        status=item.get('status', 'ativo') or 'ativo',
+                        descricao=item.get('descricao', '') or '',
+                    ))
                 except Exception as e:
-                    erros_import.append(f'Linha {item_dict.get("_linha", "?")}: {e}')
+                    erros_import.append(f'Linha {item.get("_linha", "?")}: {e}')
 
-            # Limpa a sessão
-            del request.session['importacao_dados']
+            # Insere tudo de uma vez
+            try:
+                criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
+                salvos = len(criados)
+            except Exception as e:
+                messages.error(request, f'Erro ao salvar no banco: {e}')
+                return redirect('patrimonio_importar')
+
+            # Limpa arquivo temporário e sessão
+            try:
+                Path(tmp_path_str).unlink(missing_ok=True)
+            except Exception:
+                pass
+            request.session.pop('importacao_tmp', None)
 
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_IMPORTAR,
                 tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-                descricao=f'Importou {salvos} itens via arquivo. '
-                          f'{len(erros_import)} erros.',
+                descricao=f'Importou {salvos} itens via arquivo. {len(erros_import)} erros.',
                 usuario=request.user,
             )
 
             if salvos:
                 messages.success(request, f'{salvos} itens importados com sucesso!')
             if erros_import:
-                for e in erros_import[:5]:  # Exibe só os primeiros 5 erros
+                for e in erros_import[:5]:
                     messages.warning(request, e)
 
             return redirect('patrimonio_lista')
