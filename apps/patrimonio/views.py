@@ -377,143 +377,68 @@ def patrimonio_importar(request):
             form = ImportacaoForm(request.POST, request.FILES)
             if form.is_valid():
                 try:
-                    import os, uuid, openpyxl as _opx
-
-                    # Salva o arquivo em disco (evita sessão pesada)
-                    tmp_dir = Path(settings.MEDIA_ROOT) / 'tmp_import'
-                    tmp_dir.mkdir(parents=True, exist_ok=True)
-                    ext = Path(request.FILES['arquivo'].name).suffix
-                    tmp_nome = f"{uuid.uuid4().hex}{ext}"
-                    tmp_path = tmp_dir / tmp_nome
-                    with open(tmp_path, 'wb') as f:
-                        for chunk in request.FILES['arquivo'].chunks():
-                            f.write(chunk)
-
-                    # Preview
-                    with open(tmp_path, 'rb') as f:
-                        itens_preview = processar_arquivo(f)
-                    request.session['importacao_tmp'] = str(tmp_path)
+                    itens_preview = processar_arquivo(request.FILES['arquivo'])
+                    # Salva os dados na sessão para confirmar depois
+                    request.session['importacao_dados'] = [
+                        {k: str(v) if v is not None else None for k, v in item.items()}
+                        for item in itens_preview
+                    ]
                     preview = itens_preview
-
-                    # Aproveita o mesmo arquivo para gerar o XLS de referência
-                    try:
-                        mapa_status = {
-                            'ótimo': 'ativo', 'otimo': 'ativo', 'bom': 'ativo',
-                            'regular': 'manutencao',
-                            'péssimo': 'baixado', 'pessimo': 'baixado', 'baixado': 'baixado',
-                        }
-                        wb_ref = _opx.load_workbook(tmp_path, data_only=True)
-                        ws_ref = wb_ref.active
-                        dados_ref = {}
-                        for row in ws_ref.iter_rows(min_row=2, values_only=True):
-                            chapa_raw = row[0]
-                            if not chapa_raw:
-                                continue
-                            try:
-                                chapa_key = str(int(float(chapa_raw)))
-                            except (ValueError, TypeError):
-                                continue
-                            data_raw = row[1]
-                            if hasattr(data_raw, 'strftime'):
-                                data_iso = data_raw.strftime('%Y-%m-%d')
-                            elif data_raw:
-                                try:
-                                    from datetime import datetime as _dt
-                                    data_iso = _dt.strptime(str(data_raw).strip(), '%d/%m/%Y').strftime('%Y-%m-%d')
-                                except Exception:
-                                    data_iso = ''
-                            else:
-                                data_iso = ''
-                            descricao = str(row[2]).strip() if len(row) > 2 and row[2] else ''
-                            local     = str(row[4]).strip() if len(row) > 4 and row[4] else ''
-                            estado2   = str(row[6]).strip().lower() if len(row) > 6 and row[6] else ''
-                            dados_ref[chapa_key] = {
-                                'nome': descricao,
-                                'data': data_iso,
-                                'local': local,
-                                'status': mapa_status.get(estado2, ''),
-                            }
-                        XLS_REF_JSON.parent.mkdir(parents=True, exist_ok=True)
-                        XLS_REF_JSON.write_text(json.dumps(dados_ref, ensure_ascii=False), encoding='utf-8')
-                    except Exception:
-                        pass  # Falha no ref não impede o import
-
                     messages.info(request, f'{len(itens_preview)} itens encontrados. Revise e confirme a importação.')
-                except Exception as e:
+                except ValueError as e:
                     messages.error(request, f'Erro ao processar arquivo: {e}')
 
         # Botão "confirmar" - salva os itens no banco
         elif 'confirmar' in request.POST:
-            import datetime
-            from decimal import Decimal
-
-            tmp_path_str = request.session.get('importacao_tmp')
-            if not tmp_path_str or not Path(tmp_path_str).exists():
-                messages.error(request, 'Arquivo temporário não encontrado. Envie o arquivo novamente.')
+            dados = request.session.get('importacao_dados', [])
+            if not dados:
+                messages.error(request, 'Nenhum dado para importar. Envie o arquivo novamente.')
                 return redirect('patrimonio_importar')
 
-            try:
-                with open(tmp_path_str, 'rb') as f:
-                    dados = processar_arquivo(f)
-            except Exception as e:
-                messages.error(request, f'Erro ao reler o arquivo: {e}. Envie novamente.')
-                return redirect('patrimonio_importar')
-
-            # Converte campos para string (como estava na sessão antes)
-            dados = [{k: str(v) if v is not None else None for k, v in item.items()} for item in dados]
-
+            salvos = 0
             erros_import = []
 
-            # --- 1. Pré-carrega chapas já existentes (1 query só) ---
-            chapas_existentes = set(
-                PatrimonioItem.objects.values_list('numero_chapa', flat=True)
-            )
-
-            # --- 2. Pré-cria/carrega todas as localizações únicas (batch) ---
-            nomes_loc = set(
-                d.get('localizacao_nome') for d in dados
-                if d.get('localizacao_nome') and d.get('localizacao_nome') != 'None'
-            )
-            for nome_loc in nomes_loc:
-                Localizacao.objects.get_or_create(nome=nome_loc)
-            cache_loc = {loc.nome: loc for loc in Localizacao.objects.all()}
-
-            # --- 3. Monta a lista de objetos sem tocar no banco ---
-            proxima_chapa = PatrimonioItem.proximo_numero_chapa()
-            objetos = []
             for item_dict in dados:
                 try:
-                    numero_chapa_raw = item_dict.get('numero_chapa')
-                    if numero_chapa_raw and numero_chapa_raw != 'None':
-                        numero_chapa = int(float(numero_chapa_raw))
-                        if numero_chapa in chapas_existentes:
+                    # Converte de volta os tipos necessários
+                    numero_chapa = item_dict.get('numero_chapa')
+                    if numero_chapa and numero_chapa != 'None':
+                        numero_chapa = int(float(numero_chapa))
+                        # Se a chapa já existe, pula este item
+                        if PatrimonioItem.objects.filter(numero_chapa=numero_chapa).exists():
                             erros_import.append(f'Chapa {numero_chapa} já existe - pulado.')
                             continue
-                        chapas_existentes.add(numero_chapa)
                     else:
-                        numero_chapa = proxima_chapa
-                        proxima_chapa += 1
+                        # Gera número de chapa automaticamente
+                        numero_chapa = PatrimonioItem.proximo_numero_chapa()
 
+                    # Resolve a localização pelo nome (cria se não existir)
+                    localizacao = None
                     loc_nome = item_dict.get('localizacao_nome')
-                    localizacao = cache_loc.get(loc_nome) if loc_nome and loc_nome != 'None' else None
+                    if loc_nome and loc_nome != 'None':
+                        localizacao, _ = Localizacao.objects.get_or_create(nome=loc_nome)
 
+                    # Converte valor
                     valor = None
                     val_str = item_dict.get('valor')
                     if val_str and val_str != 'None':
                         try:
+                            from decimal import Decimal
                             valor = Decimal(val_str)
                         except Exception:
                             pass
 
+                    # Converte data
                     data = None
                     data_str = item_dict.get('data_aquisicao')
                     if data_str and data_str != 'None':
+                        import datetime
                         try:
                             data = datetime.date.fromisoformat(data_str)
                         except Exception:
                             pass
 
-                    objetos.append(PatrimonioItem(
+                    PatrimonioItem.objects.create(
                         numero_chapa=numero_chapa,
                         nome=item_dict.get('nome', '') or '',
                         categoria=item_dict.get('categoria', '') or '',
@@ -523,25 +448,14 @@ def patrimonio_importar(request):
                         valor=valor,
                         status=item_dict.get('status', 'ativo') or 'ativo',
                         descricao=item_dict.get('descricao', '') or '',
-                    ))
+                    )
+                    salvos += 1
 
                 except Exception as e:
                     erros_import.append(f'Linha {item_dict.get("_linha", "?")}: {e}')
 
-            # --- 4. Insere tudo de uma vez (bulk_create) ---
-            try:
-                criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
-                salvos = len(criados)
-            except Exception as e:
-                messages.error(request, f'Erro ao salvar no banco: {e}')
-                return redirect('patrimonio_importar')
-
-            # Limpa o arquivo temporário e a sessão
-            try:
-                Path(tmp_path_str).unlink(missing_ok=True)
-            except Exception:
-                pass
-            request.session.pop('importacao_tmp', None)
+            # Limpa a sessão
+            del request.session['importacao_dados']
 
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_IMPORTAR,
@@ -554,7 +468,7 @@ def patrimonio_importar(request):
             if salvos:
                 messages.success(request, f'{salvos} itens importados com sucesso!')
             if erros_import:
-                for e in erros_import[:5]:
+                for e in erros_import[:5]:  # Exibe só os primeiros 5 erros
                     messages.warning(request, e)
 
             return redirect('patrimonio_lista')
@@ -1295,7 +1209,7 @@ def carregar_xls_referencia(request):
                 else:
                     data_iso = ''
 
-                descricao = str(row[2]).strip() if row[2] else ''   # Descricao
+                descricao = str(row[9]).strip() if row[9] else ''   # Descrição2
                 local     = str(row[4]).strip() if row[4] else ''   # Local 2
                 estado2   = str(row[6]).strip().lower() if row[6] else ''
                 status    = mapa_status.get(estado2, '')
@@ -1330,43 +1244,21 @@ def carregar_xls_referencia(request):
 def buscar_dados_xls(request, chapa):
     """
     API JSON chamada pelo JavaScript do formulário.
-    Retorna os dados do item pelo número de chapa.
-    Primeiro tenta o JSON do XLS; se não existir, consulta o banco.
+    Retorna os dados do item pelo número de chapa, consultando o JSON gerado.
 
     URL: /patrimonio/xls-ref/<chapa>/
     """
-    # Tenta o JSON do XLS de referência
-    if XLS_REF_JSON.exists():
-        try:
-            dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
-            item = dados.get(str(chapa))
-            if item:
-                return JsonResponse({'encontrado': True, **item})
-        except Exception:
-            pass
-
-    # Fallback: busca no banco de dados
-    if chapa and chapa > 0:
-        try:
-            item_db = PatrimonioItem.objects.filter(
-                numero_chapa=chapa
-            ).select_related('localizacao').first()
-            if item_db:
-                return JsonResponse({
-                    'encontrado': True,
-                    'nome': item_db.nome or '',
-                    'data': item_db.data_aquisicao.isoformat() if item_db.data_aquisicao else '',
-                    'local': str(item_db.localizacao) if item_db.localizacao else '',
-                    'status': item_db.status or '',
-                })
-        except Exception:
-            pass
-
-    # Sinaliza se o JSON não existe (para o banner no formulário)
     if not XLS_REF_JSON.exists():
         return JsonResponse({'encontrado': False, 'erro': 'XLS não carregado'})
 
-    return JsonResponse({'encontrado': False})
+    try:
+        dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
+        item = dados.get(str(chapa))
+        if item:
+            return JsonResponse({'encontrado': True, **item})
+        return JsonResponse({'encontrado': False})
+    except Exception as e:
+        return JsonResponse({'encontrado': False, 'erro': str(e)})
 
 
 # ==============================================================

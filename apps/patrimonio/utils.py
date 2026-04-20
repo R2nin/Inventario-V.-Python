@@ -144,8 +144,7 @@ def _mapear_linha(linha, num_linha):
     # Tenta encontrar o número da chapa
     numero_chapa_str = pegar([
         'numero_chapa', 'num_chapa', 'chapa', 'patrimônio', 'patrimonio',
-        'patrim', 'nº patrim', 'n° patrim', 'nº', 'n°', 'numero', 'número',
-        'id', 'código', 'codigo'
+        'nº', 'n°', 'numero', 'número', 'id', 'código', 'codigo'
     ])
 
     # O nome do item é obrigatório
@@ -185,13 +184,11 @@ def _mapear_linha(linha, num_linha):
     }
     status = status_mapa.get(status_str, 'ativo')
 
-    loc_nome = pegar(['local 2', 'local2', 'localizacao', 'localização', 'local', 'setor', 'departamento'])
-
     return {
         'numero_chapa': numero_chapa,
         'nome': nome,
         'categoria': pegar(['categoria', 'tipo', 'type', 'group', 'grupo']),
-        'localizacao_nome': loc_nome,
+        'localizacao_nome': pegar(['localizacao', 'localização', 'local', 'setor', 'departamento']),
         'responsavel': pegar(['responsavel', 'responsável', 'resp']),
         'data_aquisicao': data_aquisicao,
         'valor': valor,
