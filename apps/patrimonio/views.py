@@ -1158,7 +1158,13 @@ def carregar_xls_referencia(request):
     import openpyxl
 
     # Informa quantos itens já estão carregados (se houver)
-    total_carregado = XLSReferenciaItem.objects.count()
+    try:
+        total_carregado = XLSReferenciaItem.objects.count()
+    except Exception:
+        # Tabela ainda não existe (migration pendente) — roda migrate e tenta de novo
+        from django.core.management import call_command
+        call_command('migrate', '--noinput', verbosity=0)
+        total_carregado = XLSReferenciaItem.objects.count()
 
     if request.method == 'POST' and request.FILES.get('arquivo'):
         arquivo = request.FILES['arquivo']
