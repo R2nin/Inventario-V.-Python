@@ -422,13 +422,15 @@ def patrimonio_importar(request):
             # Pré-carrega chapas existentes (1 query)
             chapas_existentes = set(PatrimonioItem.objects.values_list('numero_chapa', flat=True))
 
-            # Pré-cria localizações únicas (batch)
+            # Pré-cria localizações únicas (bulk)
             nomes_loc = {
                 item.get('localizacao_nome') for item in dados
                 if item.get('localizacao_nome')
             }
-            for nome_loc in nomes_loc:
-                Localizacao.objects.get_or_create(nome=nome_loc)
+            existentes = set(Localizacao.objects.values_list('nome', flat=True))
+            novas = [Localizacao(nome=n) for n in nomes_loc if n not in existentes]
+            if novas:
+                Localizacao.objects.bulk_create(novas, ignore_conflicts=True)
             cache_loc = {loc.nome: loc for loc in Localizacao.objects.all()}
 
             # Monta objetos sem tocar no banco
