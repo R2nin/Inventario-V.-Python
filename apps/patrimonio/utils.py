@@ -185,11 +185,18 @@ def _mapear_linha(linha, num_linha):
     }
     status = status_mapa.get(status_str, 'ativo')
 
+    # Localização: converte float para inteiro string (ex: 1.0 → "1")
+    loc_raw = pegar(['local 2', 'local2', 'localizacao', 'localização', 'local', 'setor', 'departamento'])
+    try:
+        loc_nome = str(int(float(loc_raw))) if loc_raw else ''
+    except (ValueError, TypeError):
+        loc_nome = loc_raw
+
     return {
         'numero_chapa': numero_chapa,
         'nome': nome,
         'categoria': pegar(['categoria', 'tipo', 'type', 'group', 'grupo']),
-        'localizacao_nome': pegar(['local 2', 'local2', 'localizacao', 'localização', 'local', 'setor', 'departamento']),
+        'localizacao_nome': loc_nome,
         'responsavel': pegar(['responsavel', 'responsável', 'resp']),
         'data_aquisicao': data_aquisicao,
         'valor': valor,
