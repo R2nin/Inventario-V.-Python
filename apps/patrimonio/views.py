@@ -424,7 +424,7 @@ def patrimonio_importar(request):
                                     data_iso = ''
                             else:
                                 data_iso = ''
-                            descricao = str(row[9]).strip() if len(row) > 9 and row[9] else ''
+                            descricao = str(row[2]).strip() if len(row) > 2 and row[2] else ''
                             local     = str(row[4]).strip() if len(row) > 4 and row[4] else ''
                             estado2   = str(row[6]).strip().lower() if len(row) > 6 and row[6] else ''
                             dados_ref[chapa_key] = {
@@ -452,8 +452,12 @@ def patrimonio_importar(request):
                 messages.error(request, 'Arquivo temporário não encontrado. Envie o arquivo novamente.')
                 return redirect('patrimonio_importar')
 
-            with open(tmp_path_str, 'rb') as f:
-                dados = processar_arquivo(f)
+            try:
+                with open(tmp_path_str, 'rb') as f:
+                    dados = processar_arquivo(f)
+            except Exception as e:
+                messages.error(request, f'Erro ao reler o arquivo: {e}. Envie novamente.')
+                return redirect('patrimonio_importar')
 
             # Converte campos para string (como estava na sessão antes)
             dados = [{k: str(v) if v is not None else None for k, v in item.items()} for item in dados]
@@ -525,8 +529,12 @@ def patrimonio_importar(request):
                     erros_import.append(f'Linha {item_dict.get("_linha", "?")}: {e}')
 
             # --- 4. Insere tudo de uma vez (bulk_create) ---
-            criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
-            salvos = len(criados)
+            try:
+                criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
+                salvos = len(criados)
+            except Exception as e:
+                messages.error(request, f'Erro ao salvar no banco: {e}')
+                return redirect('patrimonio_importar')
 
             # Limpa o arquivo temporário e a sessão
             try:
@@ -1287,7 +1295,7 @@ def carregar_xls_referencia(request):
                 else:
                     data_iso = ''
 
-                descricao = str(row[9]).strip() if row[9] else ''   # Descrição2
+                descricao = str(row[2]).strip() if row[2] else ''   # Descricao
                 local     = str(row[4]).strip() if row[4] else ''   # Local 2
                 estado2   = str(row[6]).strip().lower() if row[6] else ''
                 status    = mapa_status.get(estado2, '')
