@@ -428,7 +428,7 @@ def patrimonio_importar(request):
                 if item.get('localizacao_nome')
             }
             existentes = set(Localizacao.objects.values_list('nome', flat=True))
-            novas = [Localizacao(nome=n) for n in nomes_loc if n not in existentes]
+            novas = [Localizacao(nome=n[:255]) for n in nomes_loc if n not in existentes]
             if novas:
                 Localizacao.objects.bulk_create(novas, ignore_conflicts=True)
             cache_loc = {loc.nome: loc for loc in Localizacao.objects.all()}
@@ -460,10 +460,10 @@ def patrimonio_importar(request):
 
                     objetos.append(PatrimonioItem(
                         numero_chapa=chapa,
-                        nome=item.get('nome', '') or '',
-                        categoria=item.get('categoria', '') or '',
+                        nome=(item.get('nome', '') or '')[:255],
+                        categoria=(item.get('categoria', '') or '')[:100],
                         localizacao=localizacao,
-                        responsavel=item.get('responsavel', '') or '',
+                        responsavel=(item.get('responsavel', '') or '')[:255],
                         data_aquisicao=data_val,
                         valor=item.get('valor'),
                         status=item.get('status', 'ativo') or 'ativo',
