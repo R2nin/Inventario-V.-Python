@@ -399,11 +399,13 @@ def patrimonio_importar(request):
                 except Exception as e:
                     messages.error(request, f'Erro ao processar arquivo: {e}')
 
-        # Botão "confirmar" - salva os itens no banco
-        elif 'confirmar' in request.POST:
+        # Botão "confirmar" ou "substituir" - salva os itens no banco
+        elif 'confirmar' in request.POST or 'substituir' in request.POST:
             import datetime
             from decimal import Decimal
             from pathlib import Path
+
+            substituir_tudo = 'substituir' in request.POST
 
             tmp_path_str = request.session.get('importacao_tmp')
             if not tmp_path_str or not Path(tmp_path_str).exists():
@@ -418,6 +420,11 @@ def patrimonio_importar(request):
                 return redirect('patrimonio_importar')
 
             erros_import = []
+
+            # Modo "substituir": apaga todos os itens e localizações antes de importar
+            if substituir_tudo:
+                PatrimonioItem.objects.all().delete()
+                Localizacao.objects.all().delete()
 
             # Pré-carrega chapas existentes (1 query)
             chapas_existentes = set(PatrimonioItem.objects.values_list('numero_chapa', flat=True))
@@ -487,10 +494,11 @@ def patrimonio_importar(request):
                 pass
             request.session.pop('importacao_tmp', None)
 
+            acao_desc = 'Substituiu' if substituir_tudo else 'Importou'
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_IMPORTAR,
                 tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-                descricao=f'Importou {salvos} itens via arquivo. {len(erros_import)} erros.',
+                descricao=f'{acao_desc} {salvos} itens via arquivo. {len(erros_import)} erros.',
                 usuario=request.user,
             )
 
