@@ -439,7 +439,7 @@ def patrimonio_importar(request):
                         pass  # Falha no ref não impede o import
 
                     messages.info(request, f'{len(itens_preview)} itens encontrados. Revise e confirme a importação.')
-                except ValueError as e:
+                except Exception as e:
                     messages.error(request, f'Erro ao processar arquivo: {e}')
 
         # Botão "confirmar" - salva os itens no banco
@@ -1322,21 +1322,43 @@ def carregar_xls_referencia(request):
 def buscar_dados_xls(request, chapa):
     """
     API JSON chamada pelo JavaScript do formulário.
-    Retorna os dados do item pelo número de chapa, consultando o JSON gerado.
+    Retorna os dados do item pelo número de chapa.
+    Primeiro tenta o JSON do XLS; se não existir, consulta o banco.
 
     URL: /patrimonio/xls-ref/<chapa>/
     """
+    # Tenta o JSON do XLS de referência
+    if XLS_REF_JSON.exists():
+        try:
+            dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
+            item = dados.get(str(chapa))
+            if item:
+                return JsonResponse({'encontrado': True, **item})
+        except Exception:
+            pass
+
+    # Fallback: busca no banco de dados
+    if chapa and chapa > 0:
+        try:
+            item_db = PatrimonioItem.objects.filter(
+                numero_chapa=chapa
+            ).select_related('localizacao').first()
+            if item_db:
+                return JsonResponse({
+                    'encontrado': True,
+                    'nome': item_db.nome or '',
+                    'data': item_db.data_aquisicao.isoformat() if item_db.data_aquisicao else '',
+                    'local': str(item_db.localizacao) if item_db.localizacao else '',
+                    'status': item_db.status or '',
+                })
+        except Exception:
+            pass
+
+    # Sinaliza se o JSON não existe (para o banner no formulário)
     if not XLS_REF_JSON.exists():
         return JsonResponse({'encontrado': False, 'erro': 'XLS não carregado'})
 
-    try:
-        dados = json.loads(XLS_REF_JSON.read_text(encoding='utf-8'))
-        item = dados.get(str(chapa))
-        if item:
-            return JsonResponse({'encontrado': True, **item})
-        return JsonResponse({'encontrado': False})
-    except Exception as e:
-        return JsonResponse({'encontrado': False, 'erro': str(e)})
+    return JsonResponse({'encontrado': False})
 
 
 # ==============================================================
