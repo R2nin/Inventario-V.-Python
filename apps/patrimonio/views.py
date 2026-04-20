@@ -465,8 +465,8 @@ def patrimonio_importar(request):
                     erros_import.append(f'Linha {item_dict.get("_linha", "?")}: {e}')
 
             # --- 4. Insere tudo de uma vez (bulk_create) ---
-            PatrimonioItem.objects.bulk_create(objetos, batch_size=500)
-            salvos = len(objetos)
+            criados = PatrimonioItem.objects.bulk_create(objetos, batch_size=500, ignore_conflicts=True)
+            salvos = len(criados)
 
             # Limpa a sessão
             del request.session['importacao_dados']
