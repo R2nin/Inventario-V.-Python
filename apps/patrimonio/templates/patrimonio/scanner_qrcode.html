@@ -64,6 +64,18 @@
             </div>
         </div>
 
+        <!-- Botão trocar câmera (visível só em mobile) -->
+        <div class="absolute top-3 right-3 z-10">
+            <button id="btn-trocar-camera"
+                    class="p-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full transition-colors"
+                    title="Trocar câmera">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+            </button>
+        </div>
+
         <!-- Painel inferior com informações e busca manual -->
         <div class="p-5">
 
@@ -160,6 +172,7 @@ const zoomSlider     = document.getElementById('zoom-slider');
 const zoomLabel      = document.getElementById('zoom-label');
 const previewCanvas  = document.getElementById('preview-canvas');
 const previewCtx     = previewCanvas.getContext('2d');
+const btnTrocarCamera = document.getElementById('btn-trocar-camera');
 
 // Canvas de processamento interno (não visível)
 const procCanvas = document.createElement('canvas');
@@ -169,6 +182,8 @@ const procCtx = procCanvas.getContext('2d');
 
 let escaneando = true;
 let zoomAtual = 2;
+// 'environment' = traseira (padrão), 'user' = frontal
+let facingMode = 'environment';
 
 // --- Controle do zoom ---
 zoomSlider.addEventListener('input', () => {
@@ -185,13 +200,32 @@ formManual.addEventListener('submit', function(e) {
     }
 });
 
-// --- Inicia a câmera (sem facingMode para garantir compatibilidade com webcam) ---
+// --- Para o stream atual da câmera ---
+function pararCamera() {
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+    }
+}
+
+// --- Inicia a câmera com o facingMode atual ---
 async function iniciarCamera() {
-    // Tenta primeiro com alta resolução; se falhar, cai para padrão
+    pararCamera();
+    escaneando = true;
+    statusOverlay.style.display = 'flex';
+    statusOverlay.innerHTML = `
+        <svg class="w-10 h-10 mb-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+        </svg>
+        <p id="status-text" class="text-sm font-medium">Iniciando câmera...</p>
+    `;
+
+    // Tenta com a câmera preferida (traseira ou frontal), depois cai para padrão
     const tentativas = [
-        { width: { ideal: 1920 }, height: { ideal: 1080 } },
-        { width: { ideal: 1280 }, height: { ideal: 720 } },
-        true  // qualquer câmera disponível
+        { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
+        { facingMode: { ideal: facingMode } },
+        true  // qualquer câmera (fallback para webcam desktop)
     ];
 
     for (const constraints of tentativas) {
@@ -202,7 +236,8 @@ async function iniciarCamera() {
             video.onloadedmetadata = () => {
                 statusOverlay.style.display = 'none';
                 statusDot.className = 'w-3 h-3 rounded-full bg-green-400 flex-shrink-0';
-                infoText.textContent = `Câmera ${video.videoWidth}×${video.videoHeight} — aponte o QR Code para a mira`;
+                const label = facingMode === 'environment' ? 'traseira' : 'frontal';
+                infoText.textContent = `Câmera ${label} ${video.videoWidth}×${video.videoHeight} — aponte o QR Code para a mira`;
                 requestAnimationFrame(escanearFrame);
             };
             return;
@@ -225,6 +260,12 @@ async function iniciarCamera() {
         </p>
     `;
 }
+
+// --- Botão trocar câmera ---
+btnTrocarCamera.addEventListener('click', () => {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    iniciarCamera();
+});
 
 // --- Extrai uma região central do vídeo com o zoom solicitado ---
 // Retorna { x, y, size } em coordenadas do source do vídeo.
