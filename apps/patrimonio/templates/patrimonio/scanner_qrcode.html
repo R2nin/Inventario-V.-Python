@@ -454,25 +454,25 @@ btnSalvar.addEventListener('click', async () => {
         const data = await resp.json();
 
         if (data.ok) {
-            // Adiciona à tabela (ignora duplicata)
-            if (!chapasDuplicadas.has(itemAtual.chapa)) {
-                chapasDuplicadas.add(itemAtual.chapa);
-                adicionarNaTabela({
-                    chapa:       itemAtual.chapa,
-                    nome:        itemAtual.nome,
-                    localizacao: data.localizacao_nome,
-                    status:      itemAtual.status_display,
-                    hora:        new Date().toLocaleTimeString('pt-BR'),
-                });
-                itensLidos.push({
-                    chapa:       itemAtual.chapa,
-                    nome:        itemAtual.nome,
-                    localizacao: data.localizacao_nome,
-                    status:      itemAtual.status_display,
-                    hora:        new Date().toLocaleTimeString('pt-BR'),
-                });
-            }
-            reiniciarScanner();
+            // Adiciona à tabela
+            chapasDuplicadas.add(itemAtual.chapa);
+            const hora = new Date().toLocaleTimeString('pt-BR');
+            adicionarNaTabela({
+                chapa:       itemAtual.chapa,
+                nome:        itemAtual.nome,
+                localizacao: data.localizacao_nome,
+                status:      itemAtual.status_display,
+                hora,
+            });
+            itensLidos.push({
+                chapa:       itemAtual.chapa,
+                nome:        itemAtual.nome,
+                localizacao: data.localizacao_nome,
+                status:      itemAtual.status_display,
+                hora,
+            });
+            dbg('Salvo! Aguardando 3s...');
+            mostrarSalvo(itemAtual.nome);
         } else {
             alert('Erro ao salvar: ' + (data.erro || 'desconhecido'));
         }
@@ -483,6 +483,47 @@ btnSalvar.addEventListener('click', async () => {
         btnSalvar.textContent = 'Salvar';
     }
 });
+
+// ── Feedback "Salvo!" com pausa ────────────────────────────
+function mostrarSalvo(nome) {
+    // Exibe painel de sucesso por 2.5s depois retoma
+    painelVazio.classList.add('hidden');
+    painelLoading.classList.add('hidden');
+    painelErro.classList.add('hidden');
+    painelDados.classList.add('hidden');
+
+    // Cria/reutiliza painel de sucesso temporário
+    let ps = document.getElementById('painel-salvo');
+    if (!ps) {
+        ps = document.createElement('div');
+        ps.id = 'painel-salvo';
+        ps.className = 'flex-1 flex flex-col items-center justify-center p-8';
+        document.getElementById('painel-item').appendChild(ps);
+    }
+    ps.innerHTML = `
+        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-3">
+            <svg class="w-9 h-9 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/>
+            </svg>
+        </div>
+        <p class="text-base font-bold text-green-700">Salvo!</p>
+        <p class="text-xs text-gray-500 mt-1 text-center">${nome.substring(0, 50)}</p>
+        <p class="text-xs text-gray-400 mt-3">Próxima leitura em <span id="countdown">3</span>s...</p>
+    `;
+    ps.classList.remove('hidden');
+
+    let t = 3;
+    const iv = setInterval(() => {
+        t--;
+        const cd = document.getElementById('countdown');
+        if (cd) cd.textContent = t;
+        if (t <= 0) {
+            clearInterval(iv);
+            ps.classList.add('hidden');
+            reiniciarScanner();
+        }
+    }, 1000);
+}
 
 // ── Pular item ─────────────────────────────────────────────
 btnPular.addEventListener('click', reiniciarScanner);
@@ -655,6 +696,11 @@ function escanearFrame() {
             dbg('QR: ' + valorQR.substring(0, 40));
             const chapa = parseInt(valorQR.split(/[\t\s,;|]+/)[0]);
             if (!isNaN(chapa) && chapa > 0) {
+                // Ignora chapa já salva nesta sessão
+                if (chapasDuplicadas.has(chapa)) {
+                    requestAnimationFrame(escanearFrame);
+                    return;
+                }
                 dbg('Chapa: ' + chapa);
                 buscarItem(chapa);
                 return;
