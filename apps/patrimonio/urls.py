@@ -78,8 +78,12 @@ urlpatterns = [
     # ----------------------------------------------------------
     # QR CODE
     # ----------------------------------------------------------
-    # Leitor de QR Code via câmera
-    path('scanner/',                              views.scanner_qrcode,   name='scanner_qrcode'),
+    # Leitor de QR Code via câmera (inventário por localização)
+    path('scanner/',                              views.scanner_qrcode,        name='scanner_qrcode'),
+    # API JSON: dados de um item por chapa (usado pelo scanner)
+    path('scanner/api/item/<int:chapa>/',         views.api_item_por_chapa,    name='api_item_por_chapa'),
+    # API JSON: salva localização de um item (usado pelo scanner)
+    path('scanner/api/item/<int:pk>/salvar/',     views.api_salvar_localizacao, name='api_salvar_localizacao'),
     # Leitor QR para conferência avulsa com exportação XLS
     path('leitor-qr/',                            views.leitor_qr_conferencia, name='leitor_qr_conferencia'),
     path('leitor-qr/comparar/',                   views.comparar_leitor_xls,   name='comparar_leitor_xls'),

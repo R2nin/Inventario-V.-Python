@@ -897,17 +897,80 @@ def log_lista(request):
 def scanner_qrcode(request):
     """
     Página com leitor de QR Code via câmera do dispositivo.
-    Usa JavaScript puro (biblioteca jsQR) — sem app externo.
-
-    Fluxo:
-      1. Câmera abre no navegador
-      2. Usuário aponta para o QR Code da chapa
-      3. jsQR decodifica o número da chapa
-      4. Página redireciona automaticamente para os detalhes do item
+    Permite definir uma localização antes de escanear e atualiza
+    a localização de cada item confirmado. Os itens lidos ficam
+    numa tabela e podem ser exportados como CSV.
     """
+    localizacoes = Localizacao.objects.all().order_by('nome')
     return render(request, 'patrimonio/scanner_qrcode.html', {
         'pagina_ativa': 'scanner',
+        'localizacoes': localizacoes,
     })
+
+
+@login_required
+def api_item_por_chapa(request, chapa):
+    """
+    API JSON: retorna dados do item pelo número de chapa.
+    Usado pelo scanner para mostrar o painel de confirmação.
+    """
+    from django.http import JsonResponse
+    try:
+        item = PatrimonioItem.objects.select_related('localizacao').get(numero_chapa=chapa)
+        status_labels = dict(PatrimonioItem.STATUS_CHOICES)
+        return JsonResponse({
+            'ok': True,
+            'pk': item.pk,
+            'chapa': item.numero_chapa,
+            'nome': item.nome,
+            'localizacao_id': item.localizacao_id,
+            'localizacao_nome': item.localizacao.nome if item.localizacao else '',
+            'status': item.status,
+            'status_display': status_labels.get(item.status, item.status),
+        })
+    except PatrimonioItem.DoesNotExist:
+        from django.http import JsonResponse
+        return JsonResponse({'ok': False, 'erro': f'Chapa {chapa} não encontrada.'}, status=404)
+
+
+@login_required
+def api_salvar_localizacao(request, pk):
+    """
+    API JSON: atualiza a localização de um item patrimonial.
+    Chamado pelo scanner após o usuário confirmar com "Salvar".
+    POST body: {"localizacao_id": <int>}
+    """
+    from django.http import JsonResponse
+    import json
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'erro': 'Método não permitido'}, status=405)
+    try:
+        data = json.loads(request.body)
+        localizacao_id = data.get('localizacao_id')
+        item = get_object_or_404(PatrimonioItem, pk=pk)
+
+        loc_nome = ''
+        if localizacao_id:
+            loc = get_object_or_404(Localizacao, pk=localizacao_id)
+            item.localizacao = loc
+            loc_nome = loc.nome
+        else:
+            item.localizacao = None
+
+        item.save(update_fields=['localizacao', 'atualizado_em'])
+
+        LogAuditoria.registrar(
+            acao=LogAuditoria.ACAO_EDITAR,
+            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+            descricao=f'Inventário scanner: localizou [{item.numero_chapa}] {item.nome} em "{loc_nome or "sem localização"}"',
+            usuario=request.user,
+            entidade_id=str(item.pk),
+            entidade_nome=item.nome,
+        )
+
+        return JsonResponse({'ok': True, 'localizacao_nome': loc_nome})
+    except Exception as e:
+        return JsonResponse({'ok': False, 'erro': str(e)}, status=500)
 
 
 @login_required

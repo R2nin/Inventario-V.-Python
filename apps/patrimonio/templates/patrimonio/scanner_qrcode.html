@@ -1,206 +1,547 @@
 {% extends 'patrimonio/base.html' %}
-{% block title %}Scanner QR Code{% endblock %}
+{% block title %}Scanner QR — Inventário{% endblock %}
 
 {% block content %}
 
-<div class="max-w-lg mx-auto">
-
-    <!-- Cabeçalho -->
-    <div class="text-center mb-6">
-        <h1 class="text-2xl font-bold text-gray-800">Scanner QR Code</h1>
-        <p class="text-gray-500 text-sm mt-1">
-            Aponte a câmera para o QR Code da chapa patrimonial
-        </p>
+<div class="mb-4 flex items-center gap-3">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Scanner QR — Inventário</h1>
+        <p class="text-gray-500 text-sm mt-0.5">Defina a localização, escaneie as chapas e salve o inventário</p>
     </div>
+</div>
 
-    <!-- Card do scanner -->
+<!-- ── Passo 1: Selecionar localização ─────────────────────── -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    <div class="flex-1">
+        <label class="block text-sm font-semibold text-blue-800 mb-1">
+            Localização desta sessão de inventário
+        </label>
+        <select id="sel-localizacao"
+                class="w-full px-3 py-2 border border-blue-300 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">— Selecione a localização —</option>
+            {% for loc in localizacoes %}
+            <option value="{{ loc.pk }}">{{ loc.nome }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div id="loc-badge" class="hidden px-3 py-2 bg-blue-600 text-white text-sm rounded-lg font-medium whitespace-nowrap"></div>
+</div>
+
+<!-- ── Passo 2: Scanner + Painel de item ───────────────────── -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+    <!-- Câmera -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
 
-        <!-- Área da câmera -->
-        <div class="relative bg-black" style="aspect-ratio: 1/1;">
+        <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+            <span class="text-sm font-semibold text-gray-700">Câmera</span>
+            <button id="btn-trocar-camera"
+                    class="flex items-center gap-1 text-xs text-gray-500 hover:text-blue-600 transition-colors"
+                    title="Trocar câmera">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+                </svg>
+                Trocar câmera
+            </button>
+        </div>
 
-            <!-- Elemento de vídeo: onde a câmera aparece -->
-            <video id="video"
-                   class="w-full h-full object-cover"
-                   playsinline
-                   autoplay
-                   muted></video>
-
-            <!-- Canvas oculto: usado pelo jsQR para processar cada frame -->
+        <!-- Área de vídeo -->
+        <div class="relative bg-black" style="aspect-ratio:1/1;">
+            <video id="video" class="w-full h-full object-cover" playsinline autoplay muted></video>
             <canvas id="canvas" class="hidden"></canvas>
 
-            <!-- Mira visual no centro da câmera -->
+            <!-- Mira -->
             <div class="absolute inset-0 flex items-center justify-center pointer-events-none">
-                <div class="w-56 h-56 border-4 border-white rounded-2xl opacity-70 relative">
-                    <!-- Cantos destacados da mira -->
-                    <div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-blue-400 rounded-tl-xl -mt-1 -ml-1"></div>
-                    <div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-blue-400 rounded-tr-xl -mt-1 -mr-1"></div>
-                    <div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-blue-400 rounded-bl-xl -mb-1 -ml-1"></div>
-                    <div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-blue-400 rounded-br-xl -mb-1 -mr-1"></div>
-                    <!-- Linha de scan animada -->
-                    <div id="scan-line" class="absolute left-2 right-2 h-0.5 bg-blue-400 opacity-80" style="top: 50%; animation: scan 2s linear infinite;"></div>
+                <div class="w-52 h-52 border-4 border-white rounded-2xl opacity-60 relative">
+                    <div class="absolute top-0 left-0 w-7 h-7 border-t-4 border-l-4 border-blue-400 rounded-tl-xl -mt-1 -ml-1"></div>
+                    <div class="absolute top-0 right-0 w-7 h-7 border-t-4 border-r-4 border-blue-400 rounded-tr-xl -mt-1 -mr-1"></div>
+                    <div class="absolute bottom-0 left-0 w-7 h-7 border-b-4 border-l-4 border-blue-400 rounded-bl-xl -mb-1 -ml-1"></div>
+                    <div class="absolute bottom-0 right-0 w-7 h-7 border-b-4 border-r-4 border-blue-400 rounded-br-xl -mb-1 -mr-1"></div>
+                    <div id="scan-line" class="absolute left-2 right-2 h-0.5 bg-blue-400 opacity-80" style="top:50%; animation:scan 2s linear infinite;"></div>
                 </div>
             </div>
 
-            <!-- Overlay de status (inicializando, erro, etc.) -->
-            <div id="status-overlay"
-                 class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white">
+            <!-- Overlay de status -->
+            <div id="status-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-black bg-opacity-70 text-white">
                 <svg class="w-10 h-10 mb-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                           d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
                 </svg>
-                <p id="status-text" class="text-sm font-medium">Iniciando câmera...</p>
-            </div>
-
-            <!-- Overlay de sucesso (aparece brevemente ao detectar QR) -->
-            <div id="success-overlay"
-                 class="absolute inset-0 hidden flex-col items-center justify-center bg-green-600 bg-opacity-90 text-white">
-                <svg class="w-16 h-16 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-                <p class="text-lg font-bold">QR Code detectado!</p>
-                <p id="chapa-detectada" class="text-sm mt-1 opacity-90">Chapa: ...</p>
-                <p class="text-xs mt-2 opacity-70">Redirecionando...</p>
+                <p class="text-sm font-medium">Iniciando câmera...</p>
             </div>
         </div>
 
-        <!-- Botão trocar câmera (visível só em mobile) -->
-        <div class="absolute top-3 right-3 z-10">
-            <button id="btn-trocar-camera"
-                    class="p-2 bg-black bg-opacity-50 hover:bg-opacity-70 text-white rounded-full transition-colors"
-                    title="Trocar câmera">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                          d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
-                </svg>
-            </button>
-        </div>
-
-        <!-- Painel inferior com informações e busca manual -->
-        <div class="p-5">
-
-            <!-- Estado atual do scanner -->
-            <div id="info-panel" class="flex items-center gap-3 mb-4">
-                <div id="status-dot" class="w-3 h-3 rounded-full bg-yellow-400 flex-shrink-0"></div>
-                <p id="info-text" class="text-sm text-gray-600">Aguardando câmera...</p>
+        <!-- Controles abaixo da câmera -->
+        <div class="p-4 space-y-3">
+            <!-- Status -->
+            <div class="flex items-center gap-2">
+                <div id="status-dot" class="w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0"></div>
+                <p id="info-text" class="text-xs text-gray-600">Aguardando câmera...</p>
             </div>
 
-            <!-- Zoom digital -->
-            <div class="mb-4">
+            <!-- Zoom -->
+            <div>
                 <div class="flex justify-between items-center mb-1">
-                    <label class="text-xs font-medium text-gray-600">Zoom digital</label>
-                    <span id="zoom-label" class="text-xs text-blue-600 font-semibold">2×</span>
+                    <span class="text-xs text-gray-500">Zoom</span>
+                    <span id="zoom-label" class="text-xs font-semibold text-blue-600">2×</span>
                 </div>
                 <input id="zoom-slider" type="range" min="1" max="5" step="0.5" value="2"
                        class="w-full accent-blue-600">
-                <div class="flex justify-between text-xs text-gray-400 mt-0.5">
-                    <span>1× (amplo)</span><span>5× (máximo zoom)</span>
+            </div>
+
+            <!-- Preview do que o jsQR processa -->
+            <div>
+                <p class="text-xs text-gray-400 mb-1">Visão do scanner:</p>
+                <canvas id="preview-canvas" class="w-full rounded border border-gray-100 bg-gray-50"
+                        style="image-rendering:pixelated; max-height:100px;"></canvas>
+            </div>
+
+            <!-- Entrada manual -->
+            <div class="pt-1 border-t border-gray-100">
+                <p class="text-xs text-gray-400 mb-1">Entrada manual:</p>
+                <div class="flex gap-2">
+                    <input type="number" id="input-chapa" placeholder="Número da chapa"
+                           class="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           min="1">
+                    <button id="btn-buscar-manual"
+                            class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium">
+                        Buscar
+                    </button>
                 </div>
             </div>
-
-            <!-- Preview do que o jsQR está processando -->
-            <div class="mb-4">
-                <p class="text-xs font-medium text-gray-600 mb-1">O que o scanner está vendo:</p>
-                <canvas id="preview-canvas"
-                        class="w-full rounded border border-gray-200 bg-gray-50"
-                        style="image-rendering: pixelated;"></canvas>
-            </div>
-
-            <!-- Divisor -->
-            <div class="flex items-center gap-3 my-4">
-                <div class="flex-1 border-t border-gray-200"></div>
-                <span class="text-xs text-gray-400">ou busque manualmente</span>
-                <div class="flex-1 border-t border-gray-200"></div>
-            </div>
-
-            <!-- Busca manual por número de chapa -->
-            <form method="GET" action="#" id="form-manual" class="flex gap-2">
-                <input type="number"
-                       id="input-chapa"
-                       placeholder="Digite o número da chapa (ex: 1001)"
-                       class="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-sm
-                              focus:outline-none focus:ring-2 focus:ring-blue-500"
-                       min="1">
-                <button type="submit"
-                        class="px-4 py-2 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors">
-                    Buscar
-                </button>
-            </form>
-            <p class="text-xs text-gray-400 mt-2">
-                Use a busca manual se a câmera não estiver disponível.
-            </p>
         </div>
     </div>
 
-    <!-- Dicas de uso -->
-    <div class="mt-4 bg-blue-50 border border-blue-200 rounded-xl p-4">
-        <h3 class="text-sm font-semibold text-blue-800 mb-2">Dicas para melhor leitura:</h3>
-        <ul class="text-xs text-blue-700 space-y-1 list-disc list-inside">
-            <li>Mantenha o QR Code dentro da mira azul</li>
-            <li>Garanta boa iluminação no local</li>
-            <li>Segure o dispositivo estável a ~25–35cm do QR Code</li>
-            <li>Se a câmera não abrir, use a busca manual abaixo</li>
-        </ul>
-    </div>
+    <!-- Painel do item detectado -->
+    <div id="painel-item" class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col">
 
+        <!-- Estado vazio -->
+        <div id="painel-vazio" class="flex-1 flex flex-col items-center justify-center p-8 text-gray-400">
+            <svg class="w-14 h-14 mb-3 text-gray-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
+                      d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 3.5a.5.5 0 11-1 0 .5.5 0 011 0zm-14 0a.5.5 0 11-1 0 .5.5 0 011 0z"/>
+            </svg>
+            <p class="text-sm font-medium">Aguardando leitura...</p>
+            <p class="text-xs mt-1 text-center">Aponte a câmera para um QR Code<br>ou use a entrada manual</p>
+        </div>
+
+        <!-- Estado de carregando -->
+        <div id="painel-loading" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-gray-500">
+            <svg class="w-10 h-10 mb-3 animate-spin text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+            </svg>
+            <p class="text-sm">Buscando chapa <span id="loading-chapa"></span>...</p>
+        </div>
+
+        <!-- Estado de erro (chapa não encontrada) -->
+        <div id="painel-erro" class="hidden flex-1 flex flex-col items-center justify-center p-8 text-red-500">
+            <svg class="w-12 h-12 mb-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
+                      d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+            </svg>
+            <p class="text-sm font-semibold">Item não encontrado</p>
+            <p id="erro-texto" class="text-xs text-red-400 mt-1 text-center"></p>
+            <button id="btn-tentar-novamente"
+                    class="mt-4 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm">
+                Escanear novamente
+            </button>
+        </div>
+
+        <!-- Estado com item encontrado -->
+        <div id="painel-dados" class="hidden flex-col flex-1">
+            <div class="px-5 py-4 border-b border-gray-100 flex items-center gap-2">
+                <div class="w-2.5 h-2.5 rounded-full bg-blue-500"></div>
+                <span class="text-sm font-semibold text-gray-700">Item detectado</span>
+            </div>
+
+            <div class="p-5 flex-1 space-y-4">
+                <!-- Chapa + nome -->
+                <div>
+                    <div class="text-3xl font-bold text-blue-700" id="item-chapa"></div>
+                    <div class="text-base font-medium text-gray-800 mt-0.5" id="item-nome"></div>
+                </div>
+
+                <!-- Status -->
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-500">Status:</span>
+                    <span id="item-status-badge"
+                          class="px-2 py-0.5 rounded-full text-xs font-medium"></span>
+                </div>
+
+                <!-- Localização -->
+                <div class="bg-gray-50 rounded-lg p-3 space-y-2">
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/>
+                        </svg>
+                        <span class="text-gray-500 flex-shrink-0">Atual:</span>
+                        <span id="item-loc-atual" class="text-gray-700 font-medium truncate"></span>
+                    </div>
+                    <div class="flex items-center gap-2 text-sm">
+                        <svg class="w-4 h-4 text-blue-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                  d="M9 5l7 7-7 7"/>
+                        </svg>
+                        <span class="text-blue-600 flex-shrink-0 font-medium flex-shrink-0">Nova:</span>
+                        <span id="item-loc-nova" class="text-blue-700 font-semibold truncate"></span>
+                    </div>
+                </div>
+
+                <!-- Aviso se sem localização selecionada -->
+                <div id="aviso-sem-local" class="hidden bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-700">
+                    Selecione uma localização antes de salvar.
+                </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="px-5 py-4 border-t border-gray-100 flex gap-3">
+                <button id="btn-pular"
+                        class="flex-1 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
+                    Pular
+                </button>
+                <button id="btn-salvar"
+                        class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors">
+                    Salvar
+                </button>
+            </div>
+        </div>
+
+    </div>
 </div>
 
-<!-- Animação da linha de scan -->
+<!-- ── Passo 3: Tabela de itens lidos ──────────────────────── -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <h2 class="text-sm font-semibold text-gray-700">Itens desta sessão</h2>
+            <span id="contador-badge"
+                  class="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full font-medium">0</span>
+        </div>
+        <button id="btn-exportar-csv"
+                class="flex items-center gap-1.5 px-3 py-1.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-medium transition-colors disabled:opacity-40"
+                disabled>
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+            </svg>
+            Exportar CSV
+        </button>
+    </div>
+
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead class="bg-gray-50 border-b border-gray-100">
+                <tr>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Chapa</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Nome</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Localização</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</th>
+                    <th class="px-4 py-2.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Hora</th>
+                </tr>
+            </thead>
+            <tbody id="tabela-body" class="divide-y divide-gray-50">
+                <!-- linhas inseridas via JS -->
+            </tbody>
+        </table>
+
+        <div id="tabela-vazia" class="py-10 text-center text-gray-400">
+            <p class="text-sm">Nenhum item salvo ainda nesta sessão.</p>
+        </div>
+    </div>
+</div>
+
+<!-- ── Estilos ─────────────────────────────────────────────── -->
 <style>
-    @keyframes scan {
-        0%   { top: 10%; }
-        50%  { top: 85%; }
-        100% { top: 10%; }
-    }
+@keyframes scan {
+    0%   { top: 10%; }
+    50%  { top: 85%; }
+    100% { top: 10%; }
+}
 </style>
 
+<!-- ── Script ─────────────────────────────────────────────── -->
 <script>
-// ============================================================
-// SCANNER QR CODE
-// ============================================================
+// ── Elementos ──────────────────────────────────────────────
 const video          = document.getElementById('video');
 const canvas         = document.getElementById('canvas');
 const ctx            = canvas.getContext('2d');
 const statusOverlay  = document.getElementById('status-overlay');
-const successOverlay = document.getElementById('success-overlay');
-const chapaDetectada = document.getElementById('chapa-detectada');
 const statusDot      = document.getElementById('status-dot');
 const infoText       = document.getElementById('info-text');
-const formManual     = document.getElementById('form-manual');
-const inputChapa     = document.getElementById('input-chapa');
 const zoomSlider     = document.getElementById('zoom-slider');
 const zoomLabel      = document.getElementById('zoom-label');
 const previewCanvas  = document.getElementById('preview-canvas');
 const previewCtx     = previewCanvas.getContext('2d');
 const btnTrocarCamera = document.getElementById('btn-trocar-camera');
+const inputChapa     = document.getElementById('input-chapa');
+const btnBuscarManual = document.getElementById('btn-buscar-manual');
+const selLocalizacao = document.getElementById('sel-localizacao');
+const locBadge       = document.getElementById('loc-badge');
+const contadorBadge  = document.getElementById('contador-badge');
+const btnExportarCsv = document.getElementById('btn-exportar-csv');
 
-// Canvas de processamento interno (não visível)
+// Painéis do item
+const painelVazio   = document.getElementById('painel-vazio');
+const painelLoading = document.getElementById('painel-loading');
+const painelErro    = document.getElementById('painel-erro');
+const painelDados   = document.getElementById('painel-dados');
+const erroTexto     = document.getElementById('erro-texto');
+const loadingChapa  = document.getElementById('loading-chapa');
+
+// Campos do item
+const itemChapa     = document.getElementById('item-chapa');
+const itemNome      = document.getElementById('item-nome');
+const itemStatus    = document.getElementById('item-status-badge');
+const itemLocAtual  = document.getElementById('item-loc-atual');
+const itemLocNova   = document.getElementById('item-loc-nova');
+const avisoSemLocal = document.getElementById('aviso-sem-local');
+const btnSalvar     = document.getElementById('btn-salvar');
+const btnPular      = document.getElementById('btn-pular');
+const btnTentarNovamente = document.getElementById('btn-tentar-novamente');
+
+// Tabela
+const tabelaBody    = document.getElementById('tabela-body');
+const tabelaVazia   = document.getElementById('tabela-vazia');
+
+// ── Estado ─────────────────────────────────────────────────
+let escaneando = true;
+let facingMode = 'environment';
+let zoomAtual  = 2;
+let itemAtual  = null;          // dados do item detectado
+let itensLidos = [];            // array de itens confirmados nesta sessão
+let chapasDuplicadas = new Set(); // chapas já salvas (evita duplicatas)
+
+// Canvas de processamento (não visível)
 const procCanvas = document.createElement('canvas');
-procCanvas.width = 512;
-procCanvas.height = 512;
+procCanvas.width = 512; procCanvas.height = 512;
 const procCtx = procCanvas.getContext('2d');
 
-let escaneando = true;
-let zoomAtual = 2;
-// 'environment' = traseira (padrão), 'user' = frontal
-let facingMode = 'environment';
+// ── CSRF token ─────────────────────────────────────────────
+function getCookie(name) {
+    const cookies = document.cookie.split(';');
+    for (let c of cookies) {
+        const [k, v] = c.trim().split('=');
+        if (k === name) return decodeURIComponent(v);
+    }
+    return null;
+}
+const CSRF = getCookie('csrftoken');
 
-// --- Controle do zoom ---
+// ── Localização selecionada ────────────────────────────────
+selLocalizacao.addEventListener('change', () => {
+    const opt = selLocalizacao.options[selLocalizacao.selectedIndex];
+    if (opt.value) {
+        locBadge.textContent = '📍 ' + opt.text;
+        locBadge.classList.remove('hidden');
+        itemLocNova.textContent = opt.text;
+        avisoSemLocal.classList.add('hidden');
+    } else {
+        locBadge.classList.add('hidden');
+        itemLocNova.textContent = '— não selecionada —';
+    }
+});
+
+// ── Exibir painel ──────────────────────────────────────────
+function mostrarPainel(qual) {
+    painelVazio.classList.add('hidden');
+    painelLoading.classList.add('hidden');
+    painelErro.classList.add('hidden');
+    painelDados.classList.add('hidden');
+    if (qual === 'vazio')   painelVazio.classList.remove('hidden');
+    if (qual === 'loading') painelLoading.classList.remove('hidden');
+    if (qual === 'erro')    painelErro.classList.remove('hidden');
+    if (qual === 'dados')   painelDados.classList.remove('hidden');
+}
+
+// ── Buscar item na API ─────────────────────────────────────
+async function buscarItem(chapa) {
+    escaneando = false;
+    mostrarPainel('loading');
+    loadingChapa.textContent = chapa;
+
+    try {
+        const resp = await fetch(`/scanner/api/item/${chapa}/`);
+        const data = await resp.json();
+
+        if (!data.ok) {
+            erroTexto.textContent = data.erro || 'Item não encontrado.';
+            mostrarPainel('erro');
+            return;
+        }
+
+        itemAtual = data;
+
+        // Preenche o painel
+        itemChapa.textContent = 'Chapa ' + data.chapa;
+        itemNome.textContent  = data.nome;
+
+        // Badge de status
+        const statusMap = {
+            'ativo':      ['bg-green-100 text-green-700',  data.status_display],
+            'manutencao': ['bg-yellow-100 text-yellow-700', data.status_display],
+            'baixado':    ['bg-red-100 text-red-700',       data.status_display],
+        };
+        const [cls, label] = statusMap[data.status] || ['bg-gray-100 text-gray-700', data.status];
+        itemStatus.className = 'px-2 py-0.5 rounded-full text-xs font-medium ' + cls;
+        itemStatus.textContent = label;
+
+        itemLocAtual.textContent = data.localizacao_nome || '— sem localização —';
+
+        // Localização nova (do seletor)
+        const opt = selLocalizacao.options[selLocalizacao.selectedIndex];
+        itemLocNova.textContent = opt.value ? opt.text : '— não selecionada —';
+
+        avisoSemLocal.classList.toggle('hidden', !!opt.value);
+
+        mostrarPainel('dados');
+
+    } catch (e) {
+        erroTexto.textContent = 'Erro de conexão. Tente novamente.';
+        mostrarPainel('erro');
+    }
+}
+
+// ── Salvar localização ─────────────────────────────────────
+btnSalvar.addEventListener('click', async () => {
+    const opt = selLocalizacao.options[selLocalizacao.selectedIndex];
+    if (!opt.value) {
+        avisoSemLocal.classList.remove('hidden');
+        return;
+    }
+    if (!itemAtual) return;
+
+    btnSalvar.disabled = true;
+    btnSalvar.textContent = 'Salvando...';
+
+    try {
+        const resp = await fetch(`/scanner/api/item/${itemAtual.pk}/salvar/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': CSRF,
+            },
+            body: JSON.stringify({ localizacao_id: parseInt(opt.value) }),
+        });
+        const data = await resp.json();
+
+        if (data.ok) {
+            // Adiciona à tabela (ignora duplicata)
+            if (!chapasDuplicadas.has(itemAtual.chapa)) {
+                chapasDuplicadas.add(itemAtual.chapa);
+                adicionarNaTabela({
+                    chapa:       itemAtual.chapa,
+                    nome:        itemAtual.nome,
+                    localizacao: data.localizacao_nome,
+                    status:      itemAtual.status_display,
+                    hora:        new Date().toLocaleTimeString('pt-BR'),
+                });
+                itensLidos.push({
+                    chapa:       itemAtual.chapa,
+                    nome:        itemAtual.nome,
+                    localizacao: data.localizacao_nome,
+                    status:      itemAtual.status_display,
+                    hora:        new Date().toLocaleTimeString('pt-BR'),
+                });
+            }
+            reiniciarScanner();
+        } else {
+            alert('Erro ao salvar: ' + (data.erro || 'desconhecido'));
+        }
+    } catch (e) {
+        alert('Erro de conexão ao salvar.');
+    } finally {
+        btnSalvar.disabled = false;
+        btnSalvar.textContent = 'Salvar';
+    }
+});
+
+// ── Pular item ─────────────────────────────────────────────
+btnPular.addEventListener('click', reiniciarScanner);
+btnTentarNovamente.addEventListener('click', reiniciarScanner);
+
+function reiniciarScanner() {
+    itemAtual = null;
+    mostrarPainel('vazio');
+    escaneando = true;
+    requestAnimationFrame(escanearFrame);
+}
+
+// ── Adicionar linha na tabela ──────────────────────────────
+function adicionarNaTabela(item) {
+    tabelaVazia.classList.add('hidden');
+
+    const statusCores = {
+        'Ativo':      'bg-green-100 text-green-700',
+        'Manutenção': 'bg-yellow-100 text-yellow-700',
+        'Baixado':    'bg-red-100 text-red-700',
+    };
+    const corStatus = statusCores[item.status] || 'bg-gray-100 text-gray-700';
+
+    const tr = document.createElement('tr');
+    tr.className = 'hover:bg-gray-50 transition-colors';
+    tr.innerHTML = `
+        <td class="px-4 py-2.5 font-mono text-sm font-semibold text-blue-700">${item.chapa}</td>
+        <td class="px-4 py-2.5 text-sm text-gray-800 max-w-xs truncate">${item.nome}</td>
+        <td class="px-4 py-2.5 text-sm text-gray-600">${item.localizacao}</td>
+        <td class="px-4 py-2.5">
+            <span class="px-1.5 py-0.5 rounded text-xs font-medium ${corStatus}">${item.status}</span>
+        </td>
+        <td class="px-4 py-2.5 text-xs text-gray-400">${item.hora}</td>
+    `;
+    // Insere no topo da tabela
+    tabelaBody.insertBefore(tr, tabelaBody.firstChild);
+
+    // Atualiza contador e botão CSV
+    contadorBadge.textContent = itensLidos.length + 1;
+    btnExportarCsv.disabled = false;
+}
+
+// ── Exportar CSV ───────────────────────────────────────────
+btnExportarCsv.addEventListener('click', () => {
+    if (!itensLidos.length) return;
+
+    const locSelecionada = selLocalizacao.options[selLocalizacao.selectedIndex].text || 'sessao';
+    const dataHoje = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+
+    const cabecalho = ['Chapa', 'Nome', 'Localização', 'Status', 'Hora'];
+    const linhas = itensLidos.map(i =>
+        [i.chapa, `"${i.nome.replace(/"/g, '""')}"`, `"${i.localizacao}"`, i.status, i.hora].join(';')
+    );
+    const csv = [cabecalho.join(';'), ...linhas].join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href     = url;
+    a.download = `inventario_${locSelecionada}_${dataHoje}.csv`.replace(/\s+/g, '_');
+    a.click();
+    URL.revokeObjectURL(url);
+});
+
+// ── Câmera ─────────────────────────────────────────────────
 zoomSlider.addEventListener('input', () => {
     zoomAtual = parseFloat(zoomSlider.value);
     zoomLabel.textContent = zoomAtual + '×';
 });
 
-// --- Busca manual ---
-formManual.addEventListener('submit', function(e) {
-    e.preventDefault();
-    const chapa = inputChapa.value.trim();
-    if (chapa && parseInt(chapa) > 0) {
-        window.location.href = '/patrimonio/chapa/' + chapa + '/';
+btnTrocarCamera.addEventListener('click', () => {
+    facingMode = facingMode === 'environment' ? 'user' : 'environment';
+    iniciarCamera();
+});
+
+btnBuscarManual.addEventListener('click', () => {
+    const chapa = parseInt(inputChapa.value);
+    if (chapa > 0) buscarItem(chapa);
+});
+inputChapa.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        const chapa = parseInt(inputChapa.value);
+        if (chapa > 0) buscarItem(chapa);
     }
 });
 
-// --- Para o stream atual da câmera ---
 function pararCamera() {
     if (video.srcObject) {
         video.srcObject.getTracks().forEach(t => t.stop());
@@ -208,151 +549,98 @@ function pararCamera() {
     }
 }
 
-// --- Inicia a câmera com o facingMode atual ---
 async function iniciarCamera() {
     pararCamera();
-    escaneando = true;
     statusOverlay.style.display = 'flex';
     statusOverlay.innerHTML = `
         <svg class="w-10 h-10 mb-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
         </svg>
-        <p id="status-text" class="text-sm font-medium">Iniciando câmera...</p>
-    `;
+        <p class="text-sm font-medium">Iniciando câmera...</p>`;
 
-    // Tenta com a câmera preferida (traseira ou frontal), depois cai para padrão
     const tentativas = [
         { facingMode: { ideal: facingMode }, width: { ideal: 1280 }, height: { ideal: 720 } },
         { facingMode: { ideal: facingMode } },
-        true  // qualquer câmera (fallback para webcam desktop)
+        true,
     ];
 
-    for (const constraints of tentativas) {
+    for (const c of tentativas) {
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: constraints });
+            const stream = await navigator.mediaDevices.getUserMedia({ video: c });
             video.srcObject = stream;
-            video.setAttribute('playsinline', true);
             video.onloadedmetadata = () => {
                 statusOverlay.style.display = 'none';
-                statusDot.className = 'w-3 h-3 rounded-full bg-green-400 flex-shrink-0';
+                statusDot.className = 'w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0';
                 const label = facingMode === 'environment' ? 'traseira' : 'frontal';
-                infoText.textContent = `Câmera ${label} ${video.videoWidth}×${video.videoHeight} — aponte o QR Code para a mira`;
+                infoText.textContent = `Câmera ${label} — aponte o QR Code para a mira`;
+                escaneando = true;
                 requestAnimationFrame(escanearFrame);
             };
             return;
-        } catch (e) {
-            console.warn('Tentativa falhou:', constraints, e);
-        }
+        } catch (e) { /* tenta próxima */ }
     }
 
-    // Todas falharam
-    statusDot.className = 'w-3 h-3 rounded-full bg-red-400 flex-shrink-0';
-    infoText.textContent = 'Câmera indisponível. Use a busca manual abaixo.';
+    statusDot.className = 'w-2.5 h-2.5 rounded-full bg-red-400 flex-shrink-0';
+    infoText.textContent = 'Câmera indisponível — use a entrada manual.';
     statusOverlay.innerHTML = `
-        <svg class="w-12 h-12 mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg class="w-12 h-12 mb-3 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                   d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636"/>
         </svg>
-        <p class="text-sm font-medium text-center px-6">
-            Câmera bloqueada ou não disponível.<br>
-            Use a busca manual abaixo.
-        </p>
-    `;
+        <p class="text-sm font-medium text-center px-4">Câmera bloqueada.<br>Use a entrada manual abaixo.</p>`;
 }
 
-// --- Botão trocar câmera ---
-btnTrocarCamera.addEventListener('click', () => {
-    facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    iniciarCamera();
-});
-
-// --- Extrai uma região central do vídeo com o zoom solicitado ---
-// Retorna { x, y, size } em coordenadas do source do vídeo.
 function regiaoZoom(vw, vh, zoom) {
-    // Região visível com object-cover em container quadrado
     let visSize, visX, visY;
-    if (vw >= vh) {
-        visSize = vh;
-        visX = (vw - vh) / 2;
-        visY = 0;
-    } else {
-        visSize = vw;
-        visX = 0;
-        visY = (vh - vw) / 2;
-    }
-    // Zoom divide o tamanho da região
+    if (vw >= vh) { visSize = vh; visX = (vw - vh) / 2; visY = 0; }
+    else          { visSize = vw; visX = 0; visY = (vh - vw) / 2; }
     const size = visSize / zoom;
-    return {
-        x: visX + (visSize - size) / 2,
-        y: visY + (visSize - size) / 2,
-        size,
-    };
+    return { x: visX + (visSize - size) / 2, y: visY + (visSize - size) / 2, size };
 }
 
-// --- Tenta decodificar numa região específica ---
 function tentarDecodificar(vw, vh, zoom) {
     const { x, y, size } = regiaoZoom(vw, vh, zoom);
     procCtx.drawImage(video, x, y, size, size, 0, 0, 512, 512);
-    const imageData = procCtx.getImageData(0, 0, 512, 512);
-    return jsQR(imageData.data, 512, 512, { inversionAttempts: 'attemptBoth' });
+    const img = procCtx.getImageData(0, 0, 512, 512);
+    return jsQR(img.data, 512, 512, { inversionAttempts: 'attemptBoth' });
 }
 
-// Contador para atualizar o preview com menos frequência (a cada 10 frames)
 let frameCount = 0;
-
-// --- Loop principal ---
 function escanearFrame() {
     if (!escaneando) return;
-
     if (video.readyState === video.HAVE_ENOUGH_DATA) {
-        const vw = video.videoWidth;
-        const vh = video.videoHeight;
+        const vw = video.videoWidth, vh = video.videoHeight;
 
-        // Tenta com o zoom do slider; se não detectar, tenta também 1× (frame inteiro)
         let codigo = tentarDecodificar(vw, vh, zoomAtual);
-        if (!codigo && zoomAtual !== 1) {
-            codigo = tentarDecodificar(vw, vh, 1);
-        }
+        if (!codigo && zoomAtual !== 1) codigo = tentarDecodificar(vw, vh, 1);
 
-        // Atualiza o preview a cada 10 frames para não travar a UI
         frameCount++;
         if (frameCount % 10 === 0) {
             const { x, y, size } = regiaoZoom(vw, vh, zoomAtual);
-            previewCanvas.width  = 256;
-            previewCanvas.height = 256;
+            previewCanvas.width = 256; previewCanvas.height = 256;
             previewCtx.drawImage(video, x, y, size, size, 0, 0, 256, 256);
         }
 
         if (codigo) {
-            // QR Code pode conter "chapa\tdata\tdescricao" — extrai só o primeiro campo
             const valorQR = codigo.data.trim();
-            escaneando = false;
-
             const chapa = parseInt(valorQR.split(/[\t\s,;|]+/)[0]);
             if (!isNaN(chapa) && chapa > 0) {
-                chapaDetectada.textContent = 'Chapa: ' + chapa;
-                successOverlay.style.display = 'flex';
-                setTimeout(() => {
-                    window.location.href = '/patrimonio/chapa/' + chapa + '/';
-                }, 1500);
+                buscarItem(chapa);
+                return; // para o loop até o painel ser resolvido
             } else {
-                infoText.textContent = 'QR inválido: "' + valorQR + '". Esperado: número da chapa.';
-                statusDot.className = 'w-3 h-3 rounded-full bg-yellow-400 flex-shrink-0';
-                setTimeout(() => { escaneando = true; requestAnimationFrame(escanearFrame); }, 2000);
+                infoText.textContent = `QR inválido: "${valorQR}"`;
+                setTimeout(() => requestAnimationFrame(escanearFrame), 2000);
                 return;
             }
         }
     }
-
     requestAnimationFrame(escanearFrame);
 }
 
 iniciarCamera();
 </script>
 
-<!-- jsQR: biblioteca JavaScript para decodificar QR Codes
-     Carregada via CDN - funciona 100% no navegador, sem backend -->
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
 {% endblock %}
