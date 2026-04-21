@@ -253,15 +253,6 @@
     </div>
 </div>
 
-<!-- ── Painel de debug (temporário) ───────────────────────── -->
-<div class="mt-4 bg-gray-900 rounded-xl p-3">
-    <div class="flex items-center justify-between mb-2">
-        <span class="text-xs font-semibold text-gray-400">Debug (temporário)</span>
-        <button onclick="document.getElementById('debug-log').innerHTML=''" class="text-xs text-gray-500 hover:text-white">Limpar</button>
-    </div>
-    <div id="debug-log" class="text-xs text-green-400 font-mono space-y-0.5 max-h-32 overflow-y-auto"></div>
-</div>
-
 <!-- ── Estilos ─────────────────────────────────────────────── -->
 <style>
 @keyframes scan {
@@ -276,15 +267,22 @@
 
 <!-- ── Script ─────────────────────────────────────────────── -->
 <script>
-// ── Debug on-screen ────────────────────────────────────────
-function dbg(msg) {
-    const el = document.getElementById('debug-log');
-    if (!el) return;
-    const t = new Date().toLocaleTimeString('pt-BR', {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-    const line = document.createElement('div');
-    line.textContent = `[${t}] ${msg}`;
-    el.appendChild(line);
-    el.scrollTop = el.scrollHeight;
+// ── Beep via Web Audio API ─────────────────────────────────
+let audioCtx = null;
+function beep(freq = 1200, dur = 80, vol = 0.3) {
+    try {
+        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc  = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.frequency.value = freq;
+        osc.type = 'square';
+        gain.gain.setValueAtTime(vol, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur / 1000);
+        osc.start(audioCtx.currentTime);
+        osc.stop(audioCtx.currentTime + dur / 1000);
+    } catch (e) { /* silencia erros de áudio */ }
 }
 
 // ── Elementos ──────────────────────────────────────────────
@@ -384,13 +382,9 @@ async function buscarItem(chapa) {
     escaneando = false;
     mostrarPainel('loading');
     loadingChapa.textContent = chapa;
-    dbg('Buscando API chapa ' + chapa);
-
     try {
         const resp = await fetch(`/scanner/api/item/${chapa}/`);
-        dbg('HTTP ' + resp.status);
         const data = await resp.json();
-        dbg(data.ok ? 'Item: ' + data.nome.substring(0,30) : 'Erro: ' + data.erro);
 
         if (!data.ok) {
             erroTexto.textContent = data.erro || 'Item não encontrado.';
@@ -471,7 +465,6 @@ btnSalvar.addEventListener('click', async () => {
                 status:      itemAtual.status_display,
                 hora,
             });
-            dbg('Salvo! Aguardando 3s...');
             mostrarSalvo(itemAtual.nome);
         } else {
             alert('Erro ao salvar: ' + (data.erro || 'desconhecido'));
@@ -595,7 +588,6 @@ zoomSlider.addEventListener('input', () => {
 
 btnTrocarCamera.addEventListener('click', () => {
     facingMode = facingMode === 'environment' ? 'user' : 'environment';
-    dbg('Trocando câmera: ' + facingMode);
     iniciarCamera();
 });
 
@@ -642,7 +634,6 @@ async function iniciarCamera() {
                 statusDot.className = 'w-2.5 h-2.5 rounded-full bg-green-400 flex-shrink-0';
                 const label = facingMode === 'environment' ? 'traseira' : 'frontal';
                 infoText.textContent = `Câmera ${label} — aponte o QR Code para a mira`;
-                dbg('Camera OK ' + label + ' ' + video.videoWidth + 'x' + video.videoHeight);
                 escaneando = true;
                 requestAnimationFrame(escanearFrame);
             };
@@ -693,7 +684,6 @@ function escanearFrame() {
 
         if (codigo) {
             const valorQR = codigo.data.trim();
-            dbg('QR: ' + valorQR.substring(0, 40));
             const chapa = parseInt(valorQR.split(/[\t\s,;|]+/)[0]);
             if (!isNaN(chapa) && chapa > 0) {
                 // Ignora chapa já salva nesta sessão
@@ -701,11 +691,11 @@ function escanearFrame() {
                     requestAnimationFrame(escanearFrame);
                     return;
                 }
-                dbg('Chapa: ' + chapa);
+                beep();   // bip de leitura
                 buscarItem(chapa);
                 return;
             } else {
-                dbg('QR inválido: ' + valorQR.substring(0, 30));
+                beep(400, 200, 0.2);  // bip grave = QR inválido
                 infoText.textContent = `QR inválido: "${valorQR.substring(0, 30)}"`;
                 statusDot.className = 'w-2.5 h-2.5 rounded-full bg-yellow-400 flex-shrink-0';
                 setTimeout(() => {
@@ -720,7 +710,6 @@ function escanearFrame() {
     requestAnimationFrame(escanearFrame);
 }
 
-dbg('jsQR: ' + (typeof jsQR !== 'undefined' ? 'OK' : 'NAO carregado'));
 iniciarCamera();
 </script>
 
