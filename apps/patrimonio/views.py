@@ -1836,6 +1836,78 @@ def conferencia_exportar(request):
 
 
 # ==============================================================
+# EXPORTAR QR CODES EM LOTE — ITENS CONFERIDOS DE UMA SALA
+# ==============================================================
+
+@login_required
+def conferencia_exportar_qrcodes(request):
+    """
+    Gera um arquivo ZIP com os QR Codes PNG de todos os itens
+    'conferidos' (presentes no XLS e no banco nesta localização).
+    Cada PNG é nomeado com o número de chapa: <numero_chapa>.png
+    Mesmo conteúdo do QR Code gerado por gerar_qrcode():
+      numero_chapa TAB data_aquisicao TAB nome
+
+    URL: /conferencia/exportar-qrcodes/?local=<nome>
+    """
+    import io
+    import zipfile
+    import qrcode
+
+    local_nome = request.GET.get('local', '').strip()
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    dados = _carregar_xls_dados()
+
+    # Chapas do XLS para esta sala
+    chapas_xls = {
+        int(chapa)
+        for chapa, item in dados.items()
+        if item.get('local', '').strip() == local_nome
+    }
+
+    # Itens no banco que estão nesta sala E estão no XLS (= conferidos)
+    itens_conferidos = PatrimonioItem.objects.filter(
+        numero_chapa__in=chapas_xls,
+        localizacao__nome=local_nome,
+    ).order_by('numero_chapa')
+
+    if not itens_conferidos.exists():
+        messages.warning(request, 'Nenhum item conferido encontrado para esta sala.')
+        from django.urls import reverse
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    # Monta o ZIP em memória
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for item in itens_conferidos:
+            data = item.data_aquisicao.strftime('%d/%m/%Y') if item.data_aquisicao else ''
+            conteudo = f'{item.numero_chapa}\t{data}\t{item.nome}'
+
+            qr = qrcode.QRCode(
+                version=1,
+                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                box_size=10,
+                border=4,
+            )
+            qr.add_data(conteudo)
+            qr.make(fit=True)
+            img = qr.make_image(fill_color='black', back_color='white')
+
+            png_buffer = io.BytesIO()
+            img.save(png_buffer, format='PNG')
+            zf.writestr(f'{item.numero_chapa}.png', png_buffer.getvalue())
+
+    zip_buffer.seek(0)
+
+    nome_arquivo = f"QRCodes_{local_nome}.zip".replace('/', '-').replace('\\', '-').replace(' ', '_')
+    response = HttpResponse(zip_buffer.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
+    return response
+
+
+# ==============================================================
 # COMPARAR DOIS XLS
 # ==============================================================
 
