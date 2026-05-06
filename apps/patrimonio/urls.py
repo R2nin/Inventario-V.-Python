@@ -105,9 +105,10 @@ urlpatterns = [
     # ----------------------------------------------------------
     # MÓDULO DE CONFERÊNCIA DE INVENTÁRIO
     # ----------------------------------------------------------
-    path('conferencia/',                          views.conferencia_inicio,               name='conferencia_inicio'),
-    path('conferencia/importar-localizacoes/',    views.conferencia_importar_localizacoes, name='conferencia_importar_localizacoes'),
-    path('conferencia/sala/',                     views.conferencia_sala,                 name='conferencia_sala'),
-    path('conferencia/exportar/',                 views.conferencia_exportar,             name='conferencia_exportar'),
-    path('conferencia/comparar/',                 views.comparar_xls,                     name='comparar_xls'),
+    path('conferencia/',                                views.conferencia_inicio,               name='conferencia_inicio'),
+    path('conferencia/importar-localizacoes/',          views.conferencia_importar_localizacoes, name='conferencia_importar_localizacoes'),
+    path('conferencia/sala/',                           views.conferencia_sala,                 name='conferencia_sala'),
+    path('conferencia/transferir/<int:pk>/',            views.conferencia_transferir,            name='conferencia_transferir'),
+    path('conferencia/exportar/',                       views.conferencia_exportar,             name='conferencia_exportar'),
+    path('conferencia/comparar/',                       views.comparar_xls,                     name='comparar_xls'),
 ]

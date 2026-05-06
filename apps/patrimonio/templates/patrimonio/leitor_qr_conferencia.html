@@ -30,9 +30,32 @@
         </div>
     </div>
 
+    <!-- Captura ao vivo do scanner físico -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Captura ao vivo — leitor físico</p>
+        <div class="relative">
+            <textarea id="input-scanner"
+                      rows="1"
+                      autocomplete="off"
+                      spellcheck="false"
+                      placeholder="Aponte o leitor aqui — Tab fica no campo, Enter confirma a leitura"
+                      class="w-full px-4 py-3 border-2 border-blue-400 rounded-xl text-sm font-mono
+                             focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-500
+                             bg-blue-50 placeholder-blue-300 transition-colors resize-none overflow-hidden"></textarea>
+            <div id="scanner-status"
+                 class="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-blue-400 select-none pointer-events-none">
+                <span id="scanner-dot" class="w-2 h-2 rounded-full bg-blue-400 animate-pulse inline-block"></span>
+                aguardando
+            </div>
+        </div>
+        <p class="text-xs text-gray-400 mt-2">
+            Textarea absorve Tab nativamente (sem perder foco). Enter ou Tab confirma a leitura e extrai o número da chapa.
+        </p>
+    </div>
+
     <!-- Importar TXT -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Importar TXT do leitor</p>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Importar TXT do leitor (lote)</p>
         <div class="flex gap-2 mb-3">
             <button onclick="document.getElementById('arquivo-txt').click()"
                     class="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
@@ -227,5 +250,110 @@ document.getElementById('arquivo-xls').addEventListener('change', function () {
 });
 
 renderTabela();
+
+// ── Captura ao vivo do scanner físico ──────────────────────
+// Usa <textarea> — o browser absorve Tab nativamente dentro de textarea
+// (insere \t no texto), sem navegar para outro elemento.
+// Só precisamos interceptar Enter (e Tab como fallback) no próprio elemento.
+
+const inputScanner  = document.getElementById('input-scanner');
+const scannerDot    = document.getElementById('scanner-dot');
+const scannerStatus = document.getElementById('scanner-status');
+
+// Foca ao carregar
+inputScanner.focus();
+
+// Devolve foco ao clicar em qualquer área neutra da página
+document.addEventListener('click', function (e) {
+    const t = e.target;
+    if (t.tagName !== 'BUTTON' && t.id !== 'arquivo-txt' && t.id !== 'arquivo-xls' && t !== inputScanner) {
+        inputScanner.focus();
+    }
+});
+
+// Overlay de aviso quando a janela perde foco (ex: alt-tab, URL bar via F6)
+const scannerWrap = inputScanner.closest('.bg-white');
+scannerWrap.style.position = 'relative';
+const overlayFoco = document.createElement('div');
+overlayFoco.className = 'hidden absolute inset-0 z-20 flex items-center justify-center rounded-xl cursor-pointer';
+overlayFoco.style.background = 'rgba(239,68,68,0.88)';
+overlayFoco.innerHTML = `<div class="text-center text-white px-4 select-none">
+    <p class="font-bold text-sm">Scanner pausado</p>
+    <p class="text-xs mt-1 opacity-90">Clique aqui para reativar</p>
+</div>`;
+scannerWrap.appendChild(overlayFoco);
+overlayFoco.addEventListener('click', () => {
+    overlayFoco.classList.add('hidden');
+    inputScanner.focus();
+});
+window.addEventListener('blur',  () => overlayFoco.classList.remove('hidden'));
+window.addEventListener('focus', () => { overlayFoco.classList.add('hidden'); inputScanner.focus(); });
+
+// ── Flash de feedback ──────────────────────────────────────
+function flashScanner(cor, texto) {
+    const cores = {
+        verde:   { borda: 'border-green-400', fundo: 'bg-green-50',  txt: 'text-green-600',  dot: 'bg-green-500'  },
+        amarelo: { borda: 'border-yellow-400', fundo: 'bg-yellow-50', txt: 'text-yellow-600', dot: 'bg-yellow-500' },
+    };
+    const c = cores[cor] || cores.verde;
+    inputScanner.classList.remove('border-blue-400','bg-blue-50','border-green-400','bg-green-50','border-yellow-400','bg-yellow-50');
+    inputScanner.classList.add(c.borda, c.fundo);
+    scannerDot.className = `w-2 h-2 rounded-full ${c.dot} inline-block`;
+    scannerStatus.className = `absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs ${c.txt} select-none pointer-events-none`;
+    scannerStatus.lastChild.textContent = ' ' + texto;
+    setTimeout(() => {
+        inputScanner.classList.remove(c.borda, c.fundo);
+        inputScanner.classList.add('border-blue-400', 'bg-blue-50');
+        scannerDot.className = 'w-2 h-2 rounded-full bg-blue-400 animate-pulse inline-block';
+        scannerStatus.className = 'absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1.5 text-xs text-blue-400 select-none pointer-events-none';
+        scannerStatus.lastChild.textContent = ' aguardando';
+    }, 1200);
+}
+
+// ── Processar conteúdo do textarea ────────────────────────
+function processarScanner() {
+    const chapa = extrairChapa(inputScanner.value);
+    inputScanner.value = '';
+    if (!chapa) return;
+    if (jaLido(chapa)) {
+        flashScanner('amarelo', 'duplicado: ' + chapa);
+    } else {
+        adicionar(chapa);
+        flashScanner('verde', 'adicionado: ' + chapa);
+    }
+    inputScanner.focus();
+}
+
+// ── Interceptar terminadores no próprio textarea ───────────
+inputScanner.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' || e.key === 'Tab') {
+        e.preventDefault();
+        processarScanner();
+    }
+});
+
+// ── Devolver foco ao perder ────────────────────────────────
+// e.relatedTarget = elemento que RECEBEU o foco.
+// null = foco foi para o chrome do browser (URL bar, etc.)
+// Só deixa o foco sair para elementos legítimos da página.
+inputScanner.addEventListener('blur', function (e) {
+    const dest = e.relatedTarget;
+    const tag  = dest ? dest.tagName : '';
+    const id   = dest ? (dest.id || '') : '';
+
+    const ehLegitimo = dest && (
+        tag === 'BUTTON' ||
+        tag === 'SELECT' ||
+        id  === 'arquivo-txt' ||
+        id  === 'arquivo-xls' ||
+        id  === 'textarea-lote'
+    );
+
+    if (!ehLegitimo) {
+        // Usa requestAnimationFrame para aguardar o browser terminar
+        // o ciclo atual antes de reconquistar o foco
+        requestAnimationFrame(() => inputScanner.focus());
+    }
+});
 </script>
 {% endblock %}

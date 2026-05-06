@@ -248,6 +248,32 @@ def patrimonio_criar(request):
         local_travado = Localizacao.objects.filter(nome=local_nome).first()
 
     if request.method == 'POST':
+        # Safety net para modo conferência: se a chapa já existe, transfere em vez de criar
+        voltar_local = request.POST.get('voltar_local', '').strip()
+        chapa_str = request.POST.get('numero_chapa', '')
+        if voltar_local and chapa_str:
+            try:
+                chapa = int(chapa_str)
+                existente = PatrimonioItem.objects.filter(numero_chapa=chapa).first()
+                if existente:
+                    from django.urls import reverse
+                    loc, _ = Localizacao.objects.get_or_create(nome=voltar_local)
+                    loc_anterior = existente.localizacao.nome if existente.localizacao else 'sem localização'
+                    existente.localizacao = loc
+                    existente.save(update_fields=['localizacao', 'atualizado_em'])
+                    LogAuditoria.registrar(
+                        acao=LogAuditoria.ACAO_EDITAR,
+                        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                        descricao=f'Conferência: transferiu [{existente.numero_chapa}] {existente.nome} de "{loc_anterior}" para "{voltar_local}".',
+                        usuario=request.user,
+                        entidade_id=str(existente.pk),
+                        entidade_nome=existente.nome,
+                    )
+                    messages.success(request, f'Item [{chapa}] já cadastrado — localização atualizada para "{voltar_local}".')
+                    return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}")
+            except (ValueError, TypeError):
+                pass
+
         form = PatrimonioItemForm(request.POST)
         if form.is_valid():
             item = form.save(commit=False)
@@ -265,7 +291,6 @@ def patrimonio_criar(request):
             messages.success(request, f'Item "{item.nome}" criado com sucesso!')
 
             # Se veio da conferência, volta para a sala
-            voltar_local = request.POST.get('voltar_local', '').strip()
             if voltar_local:
                 from django.urls import reverse
                 return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}")
@@ -1409,6 +1434,41 @@ def conferencia_inicio(request):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def conferencia_transferir(request, pk):
+    """
+    Transfere um item patrimonial existente para a sala em conferência.
+    Atualiza apenas o campo localização e registra no log.
+    POST: local_nome=<nome da sala>
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    item = get_object_or_404(PatrimonioItem, pk=pk)
+    local_nome = request.POST.get('local_nome', '').strip()
+
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    loc, _ = Localizacao.objects.get_or_create(nome=local_nome)
+    loc_anterior = item.localizacao.nome if item.localizacao else 'sem localização'
+    item.localizacao = loc
+    item.save(update_fields=['localizacao', 'atualizado_em'])
+
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_EDITAR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=f'Conferência: transferiu [{item.numero_chapa}] {item.nome} de "{loc_anterior}" para "{local_nome}".',
+        usuario=request.user,
+        entidade_id=str(item.pk),
+        entidade_nome=item.nome,
+    )
+    messages.success(request, f'Item [{item.numero_chapa}] transferido para "{local_nome}".')
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+
+@login_required
 def conferencia_importar_localizacoes(request):
     """
     Cria registros de Localizacao no banco para cada
@@ -1483,36 +1543,50 @@ def conferencia_sala(request):
     for chapa in sorted(itens_xls.keys()):
         xls = itens_xls[chapa]
         db  = itens_db_por_chapa.get(chapa)
+        if db is None:
+            status = 'somente_xls'
+            localizacao_atual = ''
+        else:
+            loc_db_nome = db.localizacao.nome if db.localizacao else ''
+            if loc_db_nome == local_nome:
+                status = 'conferido'
+            else:
+                status = 'local_divergente'
+            localizacao_atual = loc_db_nome
         resultados.append({
-            'chapa':    chapa,
-            'nome_xls': xls.get('nome', ''),
-            'nome_db':  db.nome if db else '',
-            'data_xls': xls.get('data', ''),
-            'status':   'conferido' if db else 'somente_xls',
-            'db_pk':    db.pk if db else None,
+            'chapa':            chapa,
+            'nome_xls':         xls.get('nome', ''),
+            'nome_db':          db.nome if db else '',
+            'data_xls':         xls.get('data', ''),
+            'status':           status,
+            'db_pk':            db.pk if db else None,
+            'localizacao_atual': localizacao_atual,
         })
 
     for db in itens_extras:
         resultados.append({
-            'chapa':    db.numero_chapa,
-            'nome_xls': '',
-            'nome_db':  db.nome,
-            'data_xls': '',
-            'status':   'somente_db',
-            'db_pk':    db.pk,
+            'chapa':            db.numero_chapa,
+            'nome_xls':         '',
+            'nome_db':          db.nome,
+            'data_xls':         '',
+            'status':           'somente_db',
+            'db_pk':            db.pk,
+            'localizacao_atual': db.localizacao.nome if db.localizacao else '',
         })
 
-    conferidos   = sum(1 for r in resultados if r['status'] == 'conferido')
-    somente_xls  = sum(1 for r in resultados if r['status'] == 'somente_xls')
-    somente_db   = sum(1 for r in resultados if r['status'] == 'somente_db')
+    conferidos      = sum(1 for r in resultados if r['status'] == 'conferido')
+    divergentes     = sum(1 for r in resultados if r['status'] == 'local_divergente')
+    somente_xls     = sum(1 for r in resultados if r['status'] == 'somente_xls')
+    somente_db      = sum(1 for r in resultados if r['status'] == 'somente_db')
 
     return render(request, 'patrimonio/conferencia_sala.html', {
-        'local_nome':  local_nome,
-        'resultados':  resultados,
-        'conferidos':  conferidos,
-        'somente_xls': somente_xls,
-        'somente_db':  somente_db,
-        'total':       len(resultados),
+        'local_nome':   local_nome,
+        'resultados':   resultados,
+        'conferidos':   conferidos,
+        'divergentes':  divergentes,
+        'somente_xls':  somente_xls,
+        'somente_db':   somente_db,
+        'total':        len(resultados),
         'pagina_ativa': 'patrimonio',
     })
 
