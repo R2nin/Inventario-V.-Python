@@ -1480,7 +1480,7 @@ def conferencia_transferir(request, pk):
         entidade_nome=item.nome,
     )
     messages.success(request, f'Item [{item.numero_chapa}] transferido para "{local_nome}" e XLS atualizado.')
-    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#fim")
 
 
 @login_required
@@ -1523,7 +1523,65 @@ def conferencia_confirmar_xls(request, pk):
         entidade_nome=item.nome,
     )
     messages.success(request, f'Item [{item.numero_chapa}] confirmado em "{local_nome}" — agora aparece como Conferido.')
-    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#fim")
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def conferencia_confirmar_xls_lote(request):
+    """
+    Confirma em lote todos os itens 'somente_db' da sala no XLS de referência.
+    Cria ou atualiza XLSReferenciaItem para cada um, fazendo todos
+    migrarem de 'Somente no banco' para 'Conferido'.
+    POST: local_nome=<nome da sala>
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome = request.POST.get('local_nome', '').strip()
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    # Chapas já presentes no XLS para esta sala
+    chapas_xls = set(
+        XLSReferenciaItem.objects.filter(local=local_nome)
+        .values_list('numero_chapa', flat=True)
+    )
+
+    # Itens no banco nesta sala que NÃO estão no XLS
+    itens_somente_db = PatrimonioItem.objects.filter(
+        localizacao__nome=local_nome
+    ).exclude(numero_chapa__in=chapas_xls).select_related('localizacao')
+
+    total = 0
+    for item in itens_somente_db:
+        xls_item, criado = XLSReferenciaItem.objects.get_or_create(
+            numero_chapa=item.numero_chapa,
+            defaults={
+                'nome':           item.nome,
+                'data_aquisicao': item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
+                'local':          local_nome,
+                'status':         item.status,
+            }
+        )
+        if not criado and xls_item.local != local_nome:
+            xls_item.local = local_nome
+            xls_item.save(update_fields=['local'])
+        total += 1
+
+    if total:
+        LogAuditoria.registrar(
+            acao=LogAuditoria.ACAO_EDITAR,
+            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+            descricao=f'Conferência lote: confirmou {total} item(ns) de "{local_nome}" no XLS de referência.',
+            usuario=request.user,
+        )
+        messages.success(request, f'{total} item(ns) confirmado(s) no XLS — agora aparecem como Conferido.')
+    else:
+        messages.info(request, 'Nenhum item pendente de confirmação no XLS.')
+
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#fim")
 
 
 @login_required

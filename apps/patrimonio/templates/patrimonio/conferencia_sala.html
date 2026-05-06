@@ -26,6 +26,22 @@
             </svg>
             Acrescentar item
         </a>
+        <!-- Botão: confirmar todos somente_db no XLS em lote -->
+        {% if somente_db > 0 %}
+        <form method="post" action="{% url 'conferencia_confirmar_xls_lote' %}" style="display:inline;">
+            {% csrf_token %}
+            <input type="hidden" name="local_nome" value="{{ local_nome }}">
+            <button type="submit"
+                    class="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    title="Confirmar todos os {{ somente_db }} item(ns) 'Somente no banco' no XLS de uma só vez">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Confirmar {{ somente_db }} no XLS
+            </button>
+        </form>
+        {% endif %}
         <!-- Botão: finalizar conferência e exportar -->
         <a href="{% url 'conferencia_exportar' %}?local={{ local_nome|urlencode }}"
            class="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors">
@@ -151,5 +167,6 @@
         </table>
     </div>
 </div>
+<div id="fim"></div>
 
 {% endblock %}
