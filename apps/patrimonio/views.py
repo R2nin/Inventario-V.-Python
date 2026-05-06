@@ -1882,7 +1882,19 @@ def conferencia_exportar_qrcodes(request):
     zip_buffer = io.BytesIO()
     with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zf:
         for item in itens_conferidos:
-            data = item.data_aquisicao.strftime('%d/%m/%Y') if item.data_aquisicao else ''
+            # Data do banco; se vazia, busca no XLS de referência
+            if item.data_aquisicao:
+                data = item.data_aquisicao.strftime('%d/%m/%Y')
+            else:
+                data_iso = dados.get(str(item.numero_chapa), {}).get('data', '')
+                if data_iso:
+                    try:
+                        from datetime import datetime as _dt
+                        data = _dt.strptime(data_iso, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    except ValueError:
+                        data = data_iso  # usa como está se o formato for diferente
+                else:
+                    data = ''
             conteudo = f'{item.numero_chapa}\t{data}\t{item.nome}'
 
             qr = qrcode.QRCode(
