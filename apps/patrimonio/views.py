@@ -290,14 +290,18 @@ def patrimonio_criar(request):
             )
             messages.success(request, f'Item "{item.nome}" criado com sucesso!')
 
-            # Se veio da conferência, volta para a sala
+            # Se veio da conferência, grava chapa na sessão e volta para a sala
             if voltar_local:
+                request.session['ultima_chapa_conferencia'] = item.numero_chapa
                 from django.urls import reverse
-                return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}")
+                return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}#chapa-{item.numero_chapa}")
             return redirect('patrimonio_detalhe', pk=item.pk)
         else:
             messages.error(request, 'Corrija os erros abaixo antes de salvar.')
     else:
+        # No modo conferência sem chapa específica, sugere a última chapa digitada (sessão)
+        if local_nome and not chapa_inicial:
+            chapa_inicial = str(request.session.get('ultima_chapa_conferencia', '') or proximo_chapa)
         initial = {'numero_chapa': chapa_inicial or proximo_chapa}
         if local_travado:
             initial['localizacao'] = local_travado
