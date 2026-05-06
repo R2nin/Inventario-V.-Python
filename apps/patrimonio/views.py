@@ -1696,6 +1696,8 @@ def conferencia_sala(request):
     somente_xls     = sum(1 for r in resultados if r['status'] == 'somente_xls')
     somente_db      = sum(1 for r in resultados if r['status'] == 'somente_db')
 
+    localizacoes = Localizacao.objects.exclude(nome=local_nome).order_by('nome')
+
     return render(request, 'patrimonio/conferencia_sala.html', {
         'local_nome':   local_nome,
         'resultados':   resultados,
@@ -1704,8 +1706,62 @@ def conferencia_sala(request):
         'somente_xls':  somente_xls,
         'somente_db':   somente_db,
         'total':        len(resultados),
+        'localizacoes': localizacoes,
         'pagina_ativa': 'patrimonio',
     })
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def conferencia_reset(request):
+    """
+    Transfere todos os itens da sala atual para uma localização escolhida,
+    deixando a sala vazia no banco para que a conferência recomece do zero.
+    O XLS de referência não é alterado — permanece como gabarito da sala.
+
+    POST: local_nome=<sala origem>  destino_pk=<pk da localização destino>
+    """
+    from django.urls import reverse
+
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome = request.POST.get('local_nome', '').strip()
+    destino_pk = request.POST.get('destino_pk', '').strip()
+
+    if not local_nome or not destino_pk:
+        messages.error(request, 'Dados incompletos para o reset.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    destino = get_object_or_404(Localizacao, pk=destino_pk)
+
+    itens = PatrimonioItem.objects.filter(localizacao__nome=local_nome).select_related('localizacao')
+    total = itens.count()
+
+    if total == 0:
+        messages.info(request, f'Nenhum item em "{local_nome}" para transferir.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    itens.update(localizacao=destino)
+
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_EDITAR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=(
+            f'Conferência RESET: {total} item(ns) transferido(s) de "{local_nome}" '
+            f'para "{destino.nome}". XLS de referência mantido.'
+        ),
+        usuario=request.user,
+        entidade_id='',
+        entidade_nome=local_nome,
+    )
+
+    messages.success(
+        request,
+        f'{total} item(ns) transferido(s) para "{destino.nome}". '
+        f'A sala "{local_nome}" está zerada — conferência reiniciada.'
+    )
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
 
 
 @login_required
