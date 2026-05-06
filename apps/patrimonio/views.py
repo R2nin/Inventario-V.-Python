@@ -1480,7 +1480,7 @@ def conferencia_transferir(request, pk):
         entidade_nome=item.nome,
     )
     messages.success(request, f'Item [{item.numero_chapa}] transferido para "{local_nome}" e XLS atualizado.')
-    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#fim")
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{item.numero_chapa}")
 
 
 @login_required
@@ -1523,7 +1523,7 @@ def conferencia_confirmar_xls(request, pk):
         entidade_nome=item.nome,
     )
     messages.success(request, f'Item [{item.numero_chapa}] confirmado em "{local_nome}" — agora aparece como Conferido.')
-    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#fim")
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{item.numero_chapa}")
 
 
 @login_required
