@@ -211,6 +211,26 @@ const inputStatus  = document.getElementById('id_status');
 const bannerOk     = document.getElementById('banner-xls');
 const bannerSemXls = document.getElementById('banner-sem-xls');
 
+// ── Sugestão de chapa via localStorage (modo conferência) ────────────
+// Se estamos em modo conferência e nenhuma chapa foi passada via URL,
+// pré-preenche com a última chapa digitada nesta sessão do browser.
+{% if local_travado and not chapa_inicial %}
+(function() {
+    const ultima = localStorage.getItem('ultima_chapa_conferencia');
+    if (ultima) {
+        inputChapa.value = ultima;
+        // Seleciona o texto para facilitar a edição dos últimos dígitos
+        inputChapa.select();
+    }
+})();
+{% endif %}
+
+// Salva no localStorage toda vez que o usuário altera o campo de chapa
+inputChapa.addEventListener('change', function() {
+    const v = this.value.trim();
+    if (v) localStorage.setItem('ultima_chapa_conferencia', v);
+});
+
 let buscando = false;
 let jaPreenchido = false;  // Evita buscas repetidas após o auto-fill
 
