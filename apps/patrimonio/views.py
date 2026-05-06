@@ -1456,15 +1456,73 @@ def conferencia_transferir(request, pk):
     item.localizacao = loc
     item.save(update_fields=['localizacao', 'atualizado_em'])
 
+    # Atualiza o XLS de referência para refletir a nova localização
+    xls_item = XLSReferenciaItem.objects.filter(numero_chapa=item.numero_chapa).first()
+    if xls_item:
+        xls_item.local = local_nome
+        xls_item.save(update_fields=['local'])
+    else:
+        # Item não estava no XLS — cria o registro para que apareça como conferido
+        XLSReferenciaItem.objects.create(
+            numero_chapa=item.numero_chapa,
+            nome=item.nome,
+            data_aquisicao=item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
+            local=local_nome,
+            status=item.status,
+        )
+
     LogAuditoria.registrar(
         acao=LogAuditoria.ACAO_EDITAR,
         tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-        descricao=f'Conferência: transferiu [{item.numero_chapa}] {item.nome} de "{loc_anterior}" para "{local_nome}".',
+        descricao=f'Conferência: transferiu [{item.numero_chapa}] {item.nome} de "{loc_anterior}" para "{local_nome}" (XLS atualizado).',
         usuario=request.user,
         entidade_id=str(item.pk),
         entidade_nome=item.nome,
     )
-    messages.success(request, f'Item [{item.numero_chapa}] transferido para "{local_nome}".')
+    messages.success(request, f'Item [{item.numero_chapa}] transferido para "{local_nome}" e XLS atualizado.')
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def conferencia_confirmar_xls(request, pk):
+    """
+    Para itens 'somente_db': confirma a presença do item nesta sala
+    atualizando (ou criando) o registro no XLS de referência.
+    Após isso o item passa a aparecer como 'Conferido'.
+    POST: local_nome=<nome da sala>
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    item = get_object_or_404(PatrimonioItem, pk=pk)
+    local_nome = request.POST.get('local_nome', '').strip()
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    xls_item, criado = XLSReferenciaItem.objects.get_or_create(
+        numero_chapa=item.numero_chapa,
+        defaults={
+            'nome':           item.nome,
+            'data_aquisicao': item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
+            'local':          local_nome,
+            'status':         item.status,
+        }
+    )
+    if not criado:
+        xls_item.local = local_nome
+        xls_item.save(update_fields=['local'])
+
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_EDITAR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=f'Conferência: confirmou [{item.numero_chapa}] {item.nome} em "{local_nome}" no XLS de referência.',
+        usuario=request.user,
+        entidade_id=str(item.pk),
+        entidade_nome=item.nome,
+    )
+    messages.success(request, f'Item [{item.numero_chapa}] confirmado em "{local_nome}" — agora aparece como Conferido.')
     return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
 
 

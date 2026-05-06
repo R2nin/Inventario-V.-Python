@@ -121,6 +121,17 @@
                                     Transferir para cá
                                 </button>
                             </form>
+                        {% elif r.status == 'somente_db' and r.db_pk %}
+                            <!-- Confirma no XLS para que apareça como Conferido -->
+                            <form method="post" action="{% url 'conferencia_confirmar_xls' r.db_pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="local_nome" value="{{ local_nome }}">
+                                <button type="submit"
+                                        class="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs"
+                                        title="Confirmar presença nesta sala e atualizar XLS">
+                                    Confirmar no XLS
+                                </button>
+                            </form>
                         {% elif r.db_pk %}
                             <a href="{% url 'patrimonio_detalhe' r.db_pk %}"
                                class="px-2 py-1 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded text-xs">
