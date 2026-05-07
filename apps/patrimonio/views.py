@@ -1417,12 +1417,18 @@ def conferencia_inicio(request):
         messages.warning(request, 'Carregue o XLS de referência antes de iniciar a conferência.')
         return redirect('carregar_xls_referencia')
 
-    # Agrupa itens por localização
+    # Agrupa itens por localização (vindos do XLS)
     locais = {}
     for chapa, item in dados.items():
         local = item.get('local', '').strip()
         if local:
             locais[local] = locais.get(local, 0) + 1
+
+    # Inclui salas cadastradas no banco que não aparecem no XLS (count = 0)
+    for loc in Localizacao.objects.all():
+        nome = loc.nome.strip()
+        if nome and nome not in locais:
+            locais[nome] = 0
 
     locais_lista = sorted(locais.items())  # Ordena A-Z
 
