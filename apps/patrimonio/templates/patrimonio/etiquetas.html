@@ -220,7 +220,7 @@
     const blocoTxt   = bloco ? `Bloco: ${bloco}` : '';
 
     // Tamanho do texto da tarja — menor se texto longo
-    const tam = local.length > 20 ? '8pt' : local.length > 12 ? '10pt' : '12pt';
+    const tam = local.length > 20 ? '11pt' : local.length > 12 ? '13pt' : '15pt';
 
     if (paraImpressao) {
       return `
@@ -244,7 +244,7 @@
             flex:0 0 66.6%;
             display:flex; align-items:center; justify-content:center;
             ${previewTarjaStyle}
-            font-weight:bold; font-size:clamp(7px,1.8vw,13px);
+            font-weight:bold; font-size:clamp(9px,2.2vw,16px);
             padding:2px 4px; text-align:center;
             word-break:break-word; line-height:1.2;">
             ${localTxt}
@@ -310,7 +310,7 @@
     }
 
     // Monta etiquetas para a janela de impressão
-    const tam = local.length > 20 ? '8pt' : local.length > 12 ? '10pt' : '12pt';
+    const tam = local.length > 20 ? '11pt' : local.length > 12 ? '13pt' : '15pt';
     let etiquetas = '';
     for (let i = 0; i < qtd; i++) {
       const blocoTxt = bloco ? `Bloco: ${bloco}` : '';
