@@ -21,6 +21,14 @@
       top: 0; left: 0;
       width: 210mm;
     }
+    @page { margin: 0; }
+  }
+
+  /* Força cores de fundo em todos os navegadores */
+  .etiqueta-tarja {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+    color-adjust: exact !important;
   }
 
   /* Grade de etiquetas para impressão */
@@ -38,7 +46,7 @@
     width: 50mm;
     height: 30mm;
     box-sizing: border-box;
-    border: 0.3mm solid #ccc;
+    border: 0.8mm solid #000;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -64,6 +72,8 @@
   .etiqueta-rodape {
     height: 10mm;
     background: #fff;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -226,7 +236,7 @@
       return `
         <div style="
           width:100%; aspect-ratio:5/3;
-          border:1px solid #ccc;
+          border:2px solid #000;
           display:flex; flex-direction:column;
           font-family:Arial,sans-serif;
           overflow:hidden; border-radius:2px;">
@@ -293,12 +303,96 @@
   }
 
   function imprimir() {
-    const { bloco, local } = lerCampos();
+    const { bloco, local, qtd, corT, corTxt } = lerCampos();
     if (!local && !bloco) {
       alert('Preencha pelo menos o campo Localização antes de imprimir.');
       return;
     }
-    window.print();
+
+    // Monta etiquetas para a janela de impressão
+    const tam = local.length > 20 ? '8pt' : local.length > 12 ? '10pt' : '12pt';
+    let etiquetas = '';
+    for (let i = 0; i < qtd; i++) {
+      const blocoTxt = bloco ? `Bloco: ${bloco}` : '';
+      etiquetas += `
+        <div class="etiqueta">
+          <div class="tarja" style="background:${corT}; color:${corTxt}; font-size:${tam};">
+            ${local || '—'}
+          </div>
+          <div class="rodape">${blocoTxt}</div>
+        </div>`;
+    }
+
+    // Abre nova janela autocontida — garante print-color-adjust sem interferência externa
+    const win = window.open('', '_blank', 'width=900,height=700');
+    win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Etiquetas</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    @page { size: A4; margin: 5mm; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    .grade {
+      display: grid;
+      grid-template-columns: repeat(4, 50mm);
+      gap: 0;
+    }
+    .etiqueta {
+      width: 50mm;
+      height: 30mm;
+      border: 0.8mm solid #000;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      page-break-inside: avoid;
+    }
+    .tarja {
+      height: 20mm;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1mm 2mm;
+      text-align: center;
+      font-weight: bold;
+      line-height: 1.2;
+      word-break: break-word;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    .rodape {
+      height: 10mm;
+      background: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0 2mm;
+      font-size: 7pt;
+      color: #222;
+      text-align: center;
+      overflow: hidden;
+      white-space: nowrap;
+      text-overflow: ellipsis;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+  </style>
+</head>
+<body>
+  <div class="grade">${etiquetas}</div>
+  <script>
+    window.onload = function() { window.print(); };
+  <\/script>
+</body>
+</html>`);
+    win.document.close();
   }
 
   // Inicializa
