@@ -115,4 +115,9 @@ urlpatterns = [
     path('conferencia/exportar/',                       views.conferencia_exportar,             name='conferencia_exportar'),
     path('conferencia/exportar-qrcodes/',               views.conferencia_exportar_qrcodes,     name='conferencia_exportar_qrcodes'),
     path('conferencia/comparar/',                       views.comparar_xls,                     name='comparar_xls'),
+
+    # ----------------------------------------------------------
+    # ETIQUETAS COLORIDAS
+    # ----------------------------------------------------------
+    path('etiquetas/', views.etiquetas_view, name='etiquetas'),
 ]

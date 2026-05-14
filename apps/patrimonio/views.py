@@ -2079,3 +2079,14 @@ def comparar_xls(request):
         'resultado':    resultado,
         'pagina_ativa': 'patrimonio',
     })
+
+
+# ----------------------------------------------------------
+# ETIQUETAS COLORIDAS
+# ----------------------------------------------------------
+@login_required
+def etiquetas_view(request):
+    """Página para gerar e imprimir etiquetas coloridas 5×3 cm."""
+    return render(request, 'patrimonio/etiquetas.html', {
+        'pagina_ativa': 'etiquetas',
+    })

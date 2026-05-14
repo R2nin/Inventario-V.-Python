@@ -1,0 +1,308 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}Etiquetas Coloridas{% endblock %}
+
+{% block content %}
+
+<!-- ===== ESTILOS DE IMPRESSÃO ===== -->
+<style>
+  /* Na tela: oculta o preview real; mostra só a interface */
+  @media screen {
+    #area-impressao { display: none; }
+  }
+
+  /* Na impressão: oculta tudo exceto as etiquetas */
+  @media print {
+    body * { visibility: hidden; }
+    #area-impressao,
+    #area-impressao * { visibility: visible; }
+    #area-impressao {
+      display: block !important;
+      position: fixed;
+      top: 0; left: 0;
+      width: 210mm;
+    }
+  }
+
+  /* Grade de etiquetas para impressão */
+  .grid-etiquetas {
+    display: grid;
+    grid-template-columns: repeat(4, 50mm);
+    gap: 0;
+    padding: 5mm;
+    width: 210mm;
+    box-sizing: border-box;
+  }
+
+  /* Cada etiqueta: 50mm × 30mm */
+  .etiqueta {
+    width: 50mm;
+    height: 30mm;
+    box-sizing: border-box;
+    border: 0.3mm solid #ccc;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    font-family: Arial, Helvetica, sans-serif;
+    page-break-inside: avoid;
+  }
+
+  /* Tarja colorida (2cm = 20mm) */
+  .etiqueta-tarja {
+    height: 20mm;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1mm 2mm;
+    text-align: center;
+    font-weight: bold;
+    line-height: 1.2;
+    word-break: break-word;
+    overflow: hidden;
+  }
+
+  /* Área inferior branca (1cm = 10mm) */
+  .etiqueta-rodape {
+    height: 10mm;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 2mm;
+    text-align: center;
+    font-size: 7pt;
+    color: #222;
+    font-family: Arial, Helvetica, sans-serif;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+</style>
+
+<!-- ===== INTERFACE (visível só na tela) ===== -->
+<div class="max-w-5xl mx-auto">
+
+  <h1 class="text-2xl font-bold text-gray-800 mb-6">Etiquetas Coloridas</h1>
+
+  <div class="flex flex-col lg:flex-row gap-6">
+
+    <!-- PAINEL DE CONFIGURAÇÃO -->
+    <div class="lg:w-80 flex-shrink-0">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-5 space-y-4">
+
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-2">Configurações</h2>
+
+        <!-- Bloco -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Bloco</label>
+          <input id="inp-bloco" type="text" placeholder="Ex.: Bloco A"
+                 class="form-input" oninput="atualizar()">
+        </div>
+
+        <!-- Localização -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Localização</label>
+          <input id="inp-local" type="text" placeholder="Ex.: Sala 101"
+                 class="form-input" oninput="atualizar()">
+        </div>
+
+        <!-- Quantidade -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Quantidade
+            <span class="font-normal text-gray-400">(máx. 36 por A4)</span>
+          </label>
+          <input id="inp-qtd" type="number" min="1" max="36" value="1"
+                 class="form-input" oninput="atualizar()">
+        </div>
+
+        <!-- Cor da tarja -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cor da tarja</label>
+          <div class="flex items-center gap-2">
+            <input id="inp-cor-tarja" type="color" value="#1e40af"
+                   class="h-9 w-16 rounded border border-gray-300 cursor-pointer p-0.5"
+                   oninput="atualizar()">
+            <input id="inp-hex-tarja" type="text" value="#1e40af" maxlength="7"
+                   class="form-input flex-1 font-mono uppercase"
+                   oninput="sincronizarHex('tarja')">
+          </div>
+        </div>
+
+        <!-- Cor do texto -->
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Cor do texto</label>
+          <div class="flex items-center gap-2">
+            <input id="inp-cor-texto" type="color" value="#ffffff"
+                   class="h-9 w-16 rounded border border-gray-300 cursor-pointer p-0.5"
+                   oninput="atualizar()">
+            <input id="inp-hex-texto" type="text" value="#ffffff" maxlength="7"
+                   class="form-input flex-1 font-mono uppercase"
+                   oninput="sincronizarHex('texto')">
+          </div>
+        </div>
+
+        <!-- Botão Imprimir -->
+        <button onclick="imprimir()"
+                class="w-full py-2.5 bg-blue-700 hover:bg-blue-800 text-white font-semibold rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+          </svg>
+          Imprimir
+        </button>
+
+      </div>
+    </div>
+
+    <!-- PREVIEW NA TELA -->
+    <div class="flex-1">
+      <div class="bg-white rounded-xl shadow border border-gray-200 p-4">
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide border-b pb-2 mb-4">
+          Pré-visualização
+        </h2>
+
+        <!-- Grade de preview (escalonada para caber na tela) -->
+        <div id="preview-container"
+             class="overflow-auto"
+             style="background:#f3f4f6; padding:8px; border-radius:6px;">
+
+          <div id="preview-grid"
+               style="display:grid; grid-template-columns: repeat(4, 1fr); gap:4px; max-width:560px;">
+            <!-- Etiquetas geradas pelo JS -->
+          </div>
+
+          <p id="preview-vazio" class="text-sm text-gray-400 italic py-6 text-center">
+            Preencha os campos para visualizar as etiquetas.
+          </p>
+        </div>
+
+        <p class="text-xs text-gray-400 mt-3">
+          Escala aproximada — a impressão usa medidas reais em mm.
+          Cada etiqueta: 5 × 3 cm | Folha A4: 4 colunas × 9 linhas = 36 etiquetas.
+        </p>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ===== ÁREA DE IMPRESSÃO (oculta na tela) ===== -->
+<div id="area-impressao">
+  <div class="grid-etiquetas" id="grid-impressao">
+    <!-- Preenchido pelo JS -->
+  </div>
+</div>
+
+<!-- ===== JAVASCRIPT ===== -->
+<script>
+  function lerCampos() {
+    const bloco  = document.getElementById('inp-bloco').value.trim();
+    const local  = document.getElementById('inp-local').value.trim();
+    const qtd    = Math.max(1, Math.min(36, parseInt(document.getElementById('inp-qtd').value) || 1));
+    const corT   = document.getElementById('inp-cor-tarja').value;
+    const corTxt = document.getElementById('inp-cor-texto').value;
+    return { bloco, local, qtd, corT, corTxt };
+  }
+
+  function criarEtiquetaHTML(bloco, local, corT, corTxt, paraImpressao) {
+    const tarjaStyle = `background:${corT}; color:${corTxt};`;
+    const localTxt   = local || '—';
+    const blocoTxt   = bloco ? `Bloco: ${bloco}` : '';
+
+    // Tamanho do texto da tarja — menor se texto longo
+    const tam = local.length > 20 ? '8pt' : local.length > 12 ? '10pt' : '12pt';
+
+    if (paraImpressao) {
+      return `
+        <div class="etiqueta">
+          <div class="etiqueta-tarja" style="${tarjaStyle} font-size:${tam};">
+            ${localTxt}
+          </div>
+          <div class="etiqueta-rodape">${blocoTxt}</div>
+        </div>`;
+    } else {
+      // Preview na tela — proporcional, sem mm
+      const previewTarjaStyle = `background:${corT}; color:${corTxt};`;
+      return `
+        <div style="
+          width:100%; aspect-ratio:5/3;
+          border:1px solid #ccc;
+          display:flex; flex-direction:column;
+          font-family:Arial,sans-serif;
+          overflow:hidden; border-radius:2px;">
+          <div style="
+            flex:0 0 66.6%;
+            display:flex; align-items:center; justify-content:center;
+            ${previewTarjaStyle}
+            font-weight:bold; font-size:clamp(7px,1.8vw,13px);
+            padding:2px 4px; text-align:center;
+            word-break:break-word; line-height:1.2;">
+            ${localTxt}
+          </div>
+          <div style="
+            flex:1;
+            background:#fff;
+            display:flex; align-items:center; justify-content:center;
+            font-size:clamp(6px,1.4vw,10px);
+            color:#333; padding:0 3px; text-align:center;
+            overflow:hidden; white-space:nowrap; text-overflow:ellipsis;">
+            ${blocoTxt}
+          </div>
+        </div>`;
+    }
+  }
+
+  function atualizar() {
+    const { bloco, local, qtd, corT, corTxt } = lerCampos();
+
+    // Sync inputs hex
+    document.getElementById('inp-hex-tarja').value = corT.toUpperCase();
+    document.getElementById('inp-hex-texto').value = corTxt.toUpperCase();
+
+    const vazio = document.getElementById('preview-vazio');
+    const grid  = document.getElementById('preview-grid');
+
+    if (!local && !bloco) {
+      vazio.style.display = 'block';
+      grid.innerHTML = '';
+      return;
+    }
+    vazio.style.display = 'none';
+
+    // Preview
+    let html = '';
+    for (let i = 0; i < qtd; i++) {
+      html += criarEtiquetaHTML(bloco, local, corT, corTxt, false);
+    }
+    grid.innerHTML = html;
+
+    // Área de impressão
+    let htmlImp = '';
+    for (let i = 0; i < qtd; i++) {
+      htmlImp += criarEtiquetaHTML(bloco, local, corT, corTxt, true);
+    }
+    document.getElementById('grid-impressao').innerHTML = htmlImp;
+  }
+
+  function sincronizarHex(campo) {
+    const hex = document.getElementById(`inp-hex-${campo}`).value.trim();
+    if (/^#[0-9a-fA-F]{6}$/.test(hex)) {
+      document.getElementById(`inp-cor-${campo}`).value = hex;
+      atualizar();
+    }
+  }
+
+  function imprimir() {
+    const { bloco, local } = lerCampos();
+    if (!local && !bloco) {
+      alert('Preencha pelo menos o campo Localização antes de imprimir.');
+      return;
+    }
+    window.print();
+  }
+
+  // Inicializa
+  atualizar();
+</script>
+
+{% endblock %}

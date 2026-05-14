@@ -79,11 +79,11 @@
                         Patrimônio
                     </a>
 
-                    <!-- Fornecedores -->
-                    <a href="{% url 'fornecedor_lista' %}"
+                    <!-- Etiquetas -->
+                    <a href="{% url 'etiquetas' %}"
                        class="nav-item px-3 py-2 rounded-md text-sm font-medium
-                              {% if pagina_ativa == 'fornecedores' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
-                        Fornecedores
+                              {% if pagina_ativa == 'etiquetas' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        Etiquetas
                     </a>
 
                     <!-- Localizações -->
@@ -197,10 +197,10 @@
                           {% if pagina_ativa == 'patrimonio' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
                     Patrimônio
                 </a>
-                <a href="{% url 'fornecedor_lista' %}"
+                <a href="{% url 'etiquetas' %}"
                    class="block px-3 py-2 rounded-md text-sm font-medium
-                          {% if pagina_ativa == 'fornecedores' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
-                    Fornecedores
+                          {% if pagina_ativa == 'etiquetas' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    Etiquetas
                 </a>
                 <a href="{% url 'localizacao_lista' %}"
                    class="block px-3 py-2 rounded-md text-sm font-medium
