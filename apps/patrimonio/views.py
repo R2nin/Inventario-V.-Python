@@ -1492,6 +1492,70 @@ def conferencia_transferir(request, pk):
 
 @login_required
 @user_passes_test(is_admin, login_url='dashboard')
+def conferencia_transferir_lote(request):
+    """
+    Transfere um conjunto de itens (selecionados via checkbox) para uma localização destino.
+    POST: local_nome=<sala origem>  destino_pk=<pk destino>  pks=<id> pks=<id> ...
+    Atualiza o banco e o XLS de referência para cada item, igual à transferência individual.
+    """
+    from django.urls import reverse
+
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome  = request.POST.get('local_nome', '').strip()
+    destino_pk  = request.POST.get('destino_pk', '').strip()
+    pks         = request.POST.getlist('pks')
+
+    if not local_nome or not destino_pk or not pks:
+        messages.error(request, 'Dados incompletos para a transferência em lote.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    destino = get_object_or_404(Localizacao, pk=destino_pk)
+
+    itens = PatrimonioItem.objects.filter(pk__in=pks).select_related('localizacao')
+    transferidos = 0
+
+    for item in itens:
+        loc_anterior = item.localizacao.nome if item.localizacao else 'sem localização'
+        item.localizacao = destino
+        item.save(update_fields=['localizacao', 'atualizado_em'])
+
+        xls_item = XLSReferenciaItem.objects.filter(numero_chapa=item.numero_chapa).first()
+        if xls_item:
+            xls_item.local = destino.nome
+            xls_item.save(update_fields=['local'])
+        else:
+            XLSReferenciaItem.objects.create(
+                numero_chapa=item.numero_chapa,
+                nome=item.nome,
+                data_aquisicao=item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
+                local=destino.nome,
+                status=item.status,
+            )
+
+        LogAuditoria.registrar(
+            acao=LogAuditoria.ACAO_EDITAR,
+            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+            descricao=(
+                f'Conferência lote: transferiu [{item.numero_chapa}] {item.nome} '
+                f'de "{loc_anterior}" para "{destino.nome}" (XLS atualizado).'
+            ),
+            usuario=request.user,
+            entidade_id=str(item.pk),
+            entidade_nome=item.nome,
+        )
+        transferidos += 1
+
+    messages.success(
+        request,
+        f'{transferidos} item(ns) transferido(s) para "{destino.nome}".'
+    )
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
 def conferencia_confirmar_xls(request, pk):
     """
     Para itens 'somente_db': confirma a presença do item nesta sala

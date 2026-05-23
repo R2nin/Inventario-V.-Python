@@ -109,6 +109,7 @@ urlpatterns = [
     path('conferencia/importar-localizacoes/',          views.conferencia_importar_localizacoes, name='conferencia_importar_localizacoes'),
     path('conferencia/sala/',                           views.conferencia_sala,                 name='conferencia_sala'),
     path('conferencia/transferir/<int:pk>/',            views.conferencia_transferir,            name='conferencia_transferir'),
+    path('conferencia/transferir-lote/',                views.conferencia_transferir_lote,       name='conferencia_transferir_lote'),
     path('conferencia/confirmar-xls/<int:pk>/',         views.conferencia_confirmar_xls,         name='conferencia_confirmar_xls'),
     path('conferencia/confirmar-xls-lote/',             views.conferencia_confirmar_xls_lote,    name='conferencia_confirmar_xls_lote'),
     path('conferencia/reset/',                            views.conferencia_reset,                name='conferencia_reset'),
