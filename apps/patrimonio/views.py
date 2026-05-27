@@ -276,26 +276,82 @@ def patrimonio_criar(request):
 
         form = PatrimonioItemForm(request.POST)
         if form.is_valid():
-            item = form.save(commit=False)
-            item.criado_por = request.user
-            item.criado_por_nome = request.user.get_full_name() or request.user.username
-            item.save()
-            LogAuditoria.registrar(
-                acao=LogAuditoria.ACAO_CRIAR,
-                tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-                descricao=f'Criou o item patrimonial "{item.nome}" (chapa {item.numero_chapa}).',
-                usuario=request.user,
-                entidade_id=item.pk,
-                entidade_nome=item.nome,
-            )
-            messages.success(request, f'Item "{item.nome}" criado com sucesso!')
+            try:
+                quantidade = max(1, min(500, int(request.POST.get('quantidade', 1))))
+            except (ValueError, TypeError):
+                quantidade = 1
 
-            # Se veio da conferência, grava chapa na sessão e volta para a sala
-            if voltar_local:
-                request.session['ultima_chapa_conferencia'] = item.numero_chapa
-                from django.urls import reverse
-                return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}#chapa-{item.numero_chapa}")
-            return redirect('patrimonio_detalhe', pk=item.pk)
+            if quantidade == 1:
+                # Criação individual (fluxo original)
+                item = form.save(commit=False)
+                item.criado_por = request.user
+                item.criado_por_nome = request.user.get_full_name() or request.user.username
+                item.save()
+                LogAuditoria.registrar(
+                    acao=LogAuditoria.ACAO_CRIAR,
+                    tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                    descricao=f'Criou o item patrimonial "{item.nome}" (chapa {item.numero_chapa}).',
+                    usuario=request.user,
+                    entidade_id=item.pk,
+                    entidade_nome=item.nome,
+                )
+                messages.success(request, f'Item "{item.nome}" criado com sucesso!')
+
+                # Se veio da conferência, grava chapa na sessão e volta para a sala
+                if voltar_local:
+                    request.session['ultima_chapa_conferencia'] = item.numero_chapa
+                    from django.urls import reverse
+                    return redirect(f"{reverse('conferencia_sala')}?local={voltar_local}#chapa-{item.numero_chapa}")
+                return redirect('patrimonio_detalhe', pk=item.pk)
+
+            else:
+                # Criação em lote: mesmo nome/local/data/descrição, chapas sequenciais
+                chapa_base  = form.cleaned_data['numero_chapa']
+                nome        = form.cleaned_data['nome']
+                localizacao = form.cleaned_data.get('localizacao')
+                data_aq     = form.cleaned_data.get('data_aquisicao')
+                descricao   = form.cleaned_data.get('descricao', '')
+                usuario_nome = request.user.get_full_name() or request.user.username
+
+                criados    = []
+                duplicados = []
+                for i in range(quantidade):
+                    chapa_atual = chapa_base + i
+                    if PatrimonioItem.objects.filter(numero_chapa=chapa_atual).exists():
+                        duplicados.append(chapa_atual)
+                        continue
+                    novo = PatrimonioItem(
+                        numero_chapa=chapa_atual,
+                        nome=nome,
+                        localizacao=localizacao,
+                        data_aquisicao=data_aq,
+                        descricao=descricao,
+                        criado_por=request.user,
+                        criado_por_nome=usuario_nome,
+                    )
+                    novo.save()
+                    LogAuditoria.registrar(
+                        acao=LogAuditoria.ACAO_CRIAR,
+                        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                        descricao=f'Criou em lote: "{nome}" (chapa {chapa_atual}) — lote de {quantidade}.',
+                        usuario=request.user,
+                        entidade_id=novo.pk,
+                        entidade_nome=novo.nome,
+                    )
+                    criados.append(chapa_atual)
+
+                if criados:
+                    messages.success(
+                        request,
+                        f'{len(criados)} item(ns) criado(s) com sucesso '
+                        f'(chapas {criados[0]} a {criados[-1]}).'
+                    )
+                if duplicados:
+                    messages.warning(
+                        request,
+                        f'Chapas já existentes (ignoradas): {", ".join(map(str, duplicados))}.'
+                    )
+                return redirect('patrimonio_lista')
         else:
             messages.error(request, 'Corrija os erros abaixo antes de salvar.')
     else:
