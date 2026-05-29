@@ -16,50 +16,42 @@
 <!-- Área de impressão: só este card é impresso -->
 <div class="max-w-sm mx-auto">
 
-    <!-- Card principal com QR Code -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-6 text-center print-card">
+    <!-- Card principal com QR Code (visualização na tela) -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-200 p-4 no-print">
+        <p class="text-xs text-gray-400 uppercase tracking-widest mb-3 text-center">Prévia da etiqueta</p>
+        <div class="flex items-center gap-4">
+            <img src="{% url 'gerar_qrcode' item.pk %}"
+                 alt="QR Code chapa {{ item.numero_chapa }}"
+                 class="w-28 h-28 border border-gray-100">
+            <span class="text-5xl font-bold font-mono text-gray-800">{{ item.numero_chapa }}</span>
+        </div>
+        <p class="text-xs text-gray-400 mt-3">{{ item.nome }}</p>
+    </div>
 
-        <!-- Nome da organização (opcional) -->
-        <p class="text-xs text-gray-400 uppercase tracking-widest mb-4">Patrimônio</p>
-
-        <!-- QR Code gerado pelo Django (imagem PNG) -->
+    <!-- Etiqueta térmica: só esta div é impressa (5cm × 3cm) -->
+    <div class="etiqueta-termica" style="
+        width: 5cm; height: 3cm;
+        display: flex; align-items: center;
+        background: white;
+        overflow: hidden;
+        position: absolute; left: -9999px;
+    ">
+        <!-- QR Code ocupa a altura total -->
         <img src="{% url 'gerar_qrcode' item.pk %}"
              alt="QR Code chapa {{ item.numero_chapa }}"
-             class="w-48 h-48 mx-auto border border-gray-100 rounded-lg p-1">
-
-        <!-- Número da chapa em destaque -->
-        <div class="mt-4 mb-2">
-            <span class="text-4xl font-bold font-mono text-gray-800">{{ item.numero_chapa }}</span>
-            <p class="text-xs text-gray-500 mt-1">Número da Chapa</p>
-        </div>
-
-        <!-- Divisor -->
-        <div class="border-t border-dashed border-gray-200 my-3"></div>
-
-        <!-- Informações do item -->
-        <div class="text-left space-y-1.5">
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-500">Item:</span>
-                <span class="font-medium text-gray-800 text-right max-w-48">{{ item.nome }}</span>
-            </div>
-            {% if item.categoria %}
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-500">Categoria:</span>
-                <span class="text-gray-700">{{ item.categoria }}</span>
-            </div>
-            {% endif %}
-            {% if item.localizacao %}
-            <div class="flex justify-between text-sm">
-                <span class="text-gray-500">Local:</span>
-                <span class="text-gray-700">{{ item.localizacao }}</span>
-            </div>
-            {% endif %}
-        </div>
-
-        <!-- Status -->
-        <div class="mt-3">
-            <span class="{{ item.get_status_badge_class }}">{{ item.get_status_display }}</span>
-        </div>
+             style="height: 2.8cm; width: 2.8cm; display: block; flex-shrink: 0; margin-left: 0.1cm;">
+        <!-- Número da chapa à direita, centralizado verticalmente -->
+        <div style="
+            flex: 1;
+            display: flex; align-items: center; justify-content: center;
+            font-family: monospace;
+            font-size: 0.9cm;
+            font-weight: 900;
+            color: #000;
+            text-align: center;
+            line-height: 1;
+            word-break: break-all;
+        ">{{ item.numero_chapa }}</div>
     </div>
 
     <!-- Botões de ação (não aparecem na impressão) -->
@@ -95,18 +87,25 @@
 <!-- Estilos específicos para impressão -->
 <style>
     @media print {
-        /* Esconde tudo que não é o card de impressão */
-        .no-print { display: none !important; }
-        nav, footer, main > *:not(.max-w-sm) { display: none !important; }
+        /* Página exata da etiqueta térmica: 5cm × 3cm, sem margens */
+        @page {
+            size: 5cm 3cm;
+            margin: 0;
+        }
 
-        /* Remove margens e fundo da página ao imprimir */
-        @page { margin: 1cm; }
-        body { background: white !important; }
+        /* Esconde absolutamente tudo exceto a etiqueta */
+        * { visibility: hidden; }
+        .etiqueta-termica,
+        .etiqueta-termica * { visibility: visible; }
 
-        /* O card fica centralizado e sem sombra na impressão */
-        .print-card {
-            box-shadow: none !important;
-            border: 1px solid #ddd !important;
+        /* Posiciona a etiqueta ocupando a página inteira */
+        .etiqueta-termica {
+            position: fixed !important;
+            top: 0; left: 0;
+            width: 5cm !important;
+            height: 3cm !important;
+            margin: 0 !important;
+            padding: 0 !important;
         }
     }
 </style>
