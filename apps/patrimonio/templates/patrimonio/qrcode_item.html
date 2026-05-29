@@ -29,13 +29,7 @@
     </div>
 
     <!-- Etiqueta térmica: só esta div é impressa (5cm × 3cm) -->
-    <div class="etiqueta-termica" style="
-        width: 5cm; height: 3cm;
-        display: flex; align-items: center;
-        background: white;
-        overflow: hidden;
-        position: absolute; left: -9999px;
-    ">
+    <div class="etiqueta-termica" style="display: none;">
         <!-- QR Code ocupa a altura total -->
         <img src="{% url 'gerar_qrcode' item.pk %}"
              alt="QR Code chapa {{ item.numero_chapa }}"
@@ -87,26 +81,33 @@
 <!-- Estilos específicos para impressão -->
 <style>
     @media print {
-        /* Página exata da etiqueta térmica: 5cm × 3cm, sem margens */
-        @page {
-            size: 5cm 3cm;
-            margin: 0;
-        }
+        /* Tamanho exato da etiqueta, sem margens */
+        @page { size: 5cm 3cm; margin: 0; }
 
-        /* Esconde absolutamente tudo exceto a etiqueta */
-        * { visibility: hidden; }
-        .etiqueta-termica,
-        .etiqueta-termica * { visibility: visible; }
-
-        /* Posiciona a etiqueta ocupando a página inteira */
-        .etiqueta-termica {
-            position: fixed !important;
-            top: 0; left: 0;
-            width: 5cm !important;
+        /* Força o documento a ter exatamente 3cm — evita páginas em branco */
+        html, body {
             height: 3cm !important;
+            max-height: 3cm !important;
+            overflow: hidden !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: white !important;
+            visibility: hidden;  /* esconde tudo visualmente */
         }
+
+        /* Mostra só a etiqueta — visibility pode ser sobrescrito em filhos */
+        .etiqueta-termica {
+            visibility: visible !important;
+            display: flex !important;
+            align-items: center;
+            position: fixed !important;
+            top: 0 !important; left: 0 !important;
+            width: 5cm !important;
+            height: 3cm !important;
+            overflow: hidden;
+            background: white;
+        }
+        .etiqueta-termica * { visibility: visible !important; }
     }
 </style>
 
