@@ -1,4 +1,5 @@
 {% extends 'patrimonio/base.html' %}
+{% load static %}
 {% block title %}QR Code - Chapa {{ item.numero_chapa }}{% endblock %}
 
 {% block content %}
@@ -46,9 +47,9 @@
         ">
             <!-- Número da chapa -->
             <span style="
-                font-family: monospace;
-                font-size: 0.65cm;
-                font-weight: 900;
+                font-family: 'ITC Eras Bold', 'Eras Bold ITC', 'Eras Bold', Arial, sans-serif;
+                font-size: 35pt;
+                font-weight: bold;
                 color: #000;
                 line-height: 1;
                 text-align: center;
@@ -65,14 +66,10 @@
                 word-break: break-word;
             ">{{ item.localizacao }}</span>
             {% endif %}
-            <!-- Texto fema -->
-            <span style="
-                font-family: Arial, sans-serif;
-                font-size: 0.28cm;
-                font-weight: 700;
-                color: #000;
-                letter-spacing: 0.02cm;
-            ">fema</span>
+            <!-- Logo FEMA -->
+            <img src="{% static 'img/logo_fema.png' %}"
+                 alt="FEMA"
+                 style="max-height: 0.7cm; max-width: 1.6cm; object-fit: contain; display: block;">
         </div>
     </div>
 
