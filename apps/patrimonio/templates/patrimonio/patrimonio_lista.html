@@ -102,7 +102,7 @@
                         </a>
                     </td>
                     <td class="px-4 py-3 text-gray-600 hidden md:table-cell">{{ item.categoria|default:"—" }}</td>
-                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">{{ item.localizacao|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell max-w-[200px] break-words">{{ item.localizacao|default:"—" }}</td>
                     <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">
                         {% if item.valor %}R$ {{ item.valor|floatformat:"2" }}{% else %}—{% endif %}
                     </td>
