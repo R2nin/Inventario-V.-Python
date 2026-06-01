@@ -106,38 +106,48 @@
 <!-- Estilos específicos para impressão -->
 <style>
     @media print {
-        /* Tamanho exato da etiqueta, sem margens */
         @page { size: 5cm 3cm; margin: 0; }
 
-        /* Oculta tudo via display:none (mais confiável que visibility:hidden na impressão real) */
+        /* min-height:0 anula o min-h-screen do base.html que gera página extra */
         html, body {
+            width: 5cm !important;
             height: 3cm !important;
+            min-height: 0 !important;
             max-height: 3cm !important;
             overflow: hidden !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
         }
+
+        /* Oculta nav, rodapé e elementos marcados como no-print */
         nav, footer, .no-print { display: none !important; }
+
+        /* Remove padding/margin do main para não deslocar a etiqueta */
         main {
-            max-width: none !important;
+            width: 5cm !important;
+            max-width: 5cm !important;
             padding: 0 !important;
             margin: 0 !important;
         }
-        /* Oculta tudo dentro do wrapper, exceto a etiqueta */
+        .max-w-sm {
+            max-width: 5cm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+        }
+
+        /* Oculta tudo no wrapper exceto a etiqueta */
         .max-w-sm > *:not(.etiqueta-termica) { display: none !important; }
 
-        /* Mostra só a etiqueta */
+        /* position:static (nunca fixed) — fixed repetiria a etiqueta em cada página */
         .etiqueta-termica {
             display: flex !important;
+            position: static !important;
             align-items: center;
-            position: fixed !important;
-            top: 0 !important; left: 0 !important;
             width: 5cm !important;
             height: 3cm !important;
-            overflow: hidden;
+            overflow: hidden !important;
             background: white !important;
-            /* Garante que cores e imagens sejam impressas fielmente */
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
