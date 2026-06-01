@@ -93,6 +93,8 @@ urlpatterns = [
     path('patrimonio/<int:pk>/qrcode.png',        views.gerar_qrcode,     name='gerar_qrcode'),
     # Página para visualizar e imprimir o QR Code
     path('patrimonio/<int:pk>/qrcode/',           views.pagina_qrcode,    name='pagina_qrcode'),
+    # Página standalone para impressão da etiqueta térmica (sem base.html)
+    path('patrimonio/<int:pk>/etiqueta/print/',   views.etiqueta_print,   name='etiqueta_print'),
 
     # ----------------------------------------------------------
     # XLS DE REFERÊNCIA — AUTO-PREENCHIMENTO

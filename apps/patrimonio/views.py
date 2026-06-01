@@ -1150,6 +1150,17 @@ def pagina_qrcode(request, pk):
     })
 
 
+@login_required
+def etiqueta_print(request, pk):
+    """
+    Página standalone (sem base.html, sem Tailwind) para impressão da etiqueta térmica.
+    Abre em nova janela e auto-imprime ao carregar.
+    URL: /patrimonio/<pk>/etiqueta/print/
+    """
+    item = get_object_or_404(PatrimonioItem, pk=pk)
+    return render(request, 'patrimonio/etiqueta_print.html', {'item': item})
+
+
 # ==============================================================
 # LEITOR QR CODE — CONFERÊNCIA AVULSA
 # ==============================================================
