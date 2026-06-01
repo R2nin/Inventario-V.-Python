@@ -109,7 +109,7 @@
         /* Tamanho exato da etiqueta, sem margens */
         @page { size: 5cm 3cm; margin: 0; }
 
-        /* Força o documento a ter exatamente 3cm — evita páginas em branco */
+        /* Oculta tudo via display:none (mais confiável que visibility:hidden na impressão real) */
         html, body {
             height: 3cm !important;
             max-height: 3cm !important;
@@ -117,12 +117,18 @@
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            visibility: hidden;  /* esconde tudo visualmente */
         }
+        nav, footer, .no-print { display: none !important; }
+        main {
+            max-width: none !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        /* Oculta tudo dentro do wrapper, exceto a etiqueta */
+        .max-w-sm > *:not(.etiqueta-termica) { display: none !important; }
 
-        /* Mostra só a etiqueta — visibility pode ser sobrescrito em filhos */
+        /* Mostra só a etiqueta */
         .etiqueta-termica {
-            visibility: visible !important;
             display: flex !important;
             align-items: center;
             position: fixed !important;
@@ -130,9 +136,15 @@
             width: 5cm !important;
             height: 3cm !important;
             overflow: hidden;
-            background: white;
+            background: white !important;
+            /* Garante que cores e imagens sejam impressas fielmente */
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
         }
-        .etiqueta-termica * { visibility: visible !important; }
+        .etiqueta-termica * {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+        }
     }
 </style>
 
