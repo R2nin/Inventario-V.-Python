@@ -79,16 +79,16 @@
 <!-- Tabela de itens -->
 <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
     <div class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full text-sm table-fixed">
             <thead>
                 <tr class="bg-gray-50 border-b border-gray-200">
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Chapa</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600 w-28">Chapa</th>
                     <th class="px-4 py-3 text-left font-semibold text-gray-600">Nome</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden md:table-cell">Categoria</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden lg:table-cell">Localização</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden lg:table-cell">Valor</th>
-                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Status</th>
-                    <th class="px-4 py-3 text-right font-semibold text-gray-600">Ações</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden md:table-cell w-32">Categoria</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden lg:table-cell w-48">Localização</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600 hidden lg:table-cell w-28">Valor</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600 w-28">Status</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600 w-24">Ações</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -102,7 +102,7 @@
                         </a>
                     </td>
                     <td class="px-4 py-3 text-gray-600 hidden md:table-cell">{{ item.categoria|default:"—" }}</td>
-                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell max-w-[200px] break-words">{{ item.localizacao|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell break-words">{{ item.localizacao|default:"—" }}</td>
                     <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">
                         {% if item.valor %}R$ {{ item.valor|floatformat:"2" }}{% else %}—{% endif %}
                     </td>
