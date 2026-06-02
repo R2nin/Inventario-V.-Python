@@ -2091,10 +2091,10 @@ def conferencia_exportar_qrcodes(request):
             conteudo = f'{item.numero_chapa}\t{data}\t{item.nome}'
 
             qr = qrcode.QRCode(
-                version=1,
-                error_correction=qrcode.constants.ERROR_CORRECT_H,
+                version=None,
+                error_correction=qrcode.constants.ERROR_CORRECT_M,
                 box_size=10,
-                border=4,
+                border=2,
             )
             qr.add_data(conteudo)
             qr.make(fit=True)
