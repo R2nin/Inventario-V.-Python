@@ -49,10 +49,10 @@
         Logo   : rodapé da col direita
 -->
 <div style="
-    position: fixed;
-    top: 0; left: 0;
+    position: relative;
     width: 5cm; height: 3cm;
     background: white;
+    overflow: hidden;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;
 ">
@@ -82,9 +82,9 @@
     {% if item.localizacao %}
     <span style="
         position: absolute;
-        top: 1.4cm; left: 3.2cm; right: 1mm;
+        top: 1.0cm; bottom: 1.1cm; left: 3.2cm; right: 1mm;
         font-family: Arial, sans-serif;
-        font-size: 6pt; font-weight: 600;
+        font-size: 5.5pt; font-weight: 600;
         color: #000;
         text-align: center;
         line-height: 1.2;
