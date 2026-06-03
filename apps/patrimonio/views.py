@@ -1528,7 +1528,9 @@ def conferencia_transferir(request, pk):
     loc, _ = Localizacao.objects.get_or_create(nome=local_nome)
     loc_anterior = item.localizacao.nome if item.localizacao else 'sem localização'
     item.localizacao = loc
-    item.save(update_fields=['localizacao', 'atualizado_em'])
+    if 'baixado' in local_nome.lower():
+        item.status = PatrimonioItem.STATUS_BAIXADO
+    item.save(update_fields=['localizacao', 'status', 'atualizado_em'])
 
     # Atualiza o XLS de referência para refletir a nova localização
     xls_item = XLSReferenciaItem.objects.filter(numero_chapa=item.numero_chapa).first()
@@ -1589,7 +1591,10 @@ def conferencia_transferir_lote(request):
         return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
 
     # Atualiza todos os PatrimonioItem em uma única query SQL
-    PatrimonioItem.objects.filter(pk__in=pks).update(localizacao=destino)
+    update_kwargs = {'localizacao': destino}
+    if 'baixado' in destino.nome.lower():
+        update_kwargs['status'] = PatrimonioItem.STATUS_BAIXADO
+    PatrimonioItem.objects.filter(pk__in=pks).update(**update_kwargs)
 
     # Atualiza o XLS em lote: busca todos os registros existentes de uma vez
     chapas = [item.numero_chapa for item in itens]
@@ -1912,7 +1917,10 @@ def conferencia_reset(request):
         messages.info(request, f'Nenhum item em "{local_nome}" para transferir.')
         return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
 
-    itens.update(localizacao=destino)
+    reset_kwargs = {'localizacao': destino}
+    if 'baixado' in destino.nome.lower():
+        reset_kwargs['status'] = PatrimonioItem.STATUS_BAIXADO
+    itens.update(**reset_kwargs)
 
     LogAuditoria.registrar(
         acao=LogAuditoria.ACAO_EDITAR,
