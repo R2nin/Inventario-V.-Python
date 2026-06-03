@@ -1825,6 +1825,7 @@ def conferencia_sala(request):
             else:
                 status = 'local_divergente'
             localizacao_atual = loc_db_nome
+        item_status = db.status if db else ''
         resultados.append({
             'chapa':            chapa,
             'nome_xls':         xls.get('nome', ''),
@@ -1833,10 +1834,17 @@ def conferencia_sala(request):
             'status':           status,
             'db_pk':            db.pk if db else None,
             'localizacao_atual': localizacao_atual,
-            'item_status':      db.status if db else '',
+            'item_status':      item_status,
+            'is_baixado':       (
+                item_status == 'baixado'
+                or 'baixado' in localizacao_atual.lower()
+                or 'baixado' in local_nome.lower()
+            ),
         })
 
     for db in itens_extras:
+        loc_atual = db.localizacao.nome if db.localizacao else ''
+        item_status = db.status
         resultados.append({
             'chapa':            db.numero_chapa,
             'nome_xls':         '',
@@ -1844,8 +1852,13 @@ def conferencia_sala(request):
             'data_xls':         '',
             'status':           'somente_db',
             'db_pk':            db.pk,
-            'localizacao_atual': db.localizacao.nome if db.localizacao else '',
-            'item_status':      db.status,
+            'localizacao_atual': loc_atual,
+            'item_status':      item_status,
+            'is_baixado':       (
+                item_status == 'baixado'
+                or 'baixado' in loc_atual.lower()
+                or 'baixado' in local_nome.lower()
+            ),
         })
 
     conferidos      = sum(1 for r in resultados if r['status'] == 'conferido')
