@@ -270,7 +270,8 @@
                 {% for r in resultados %}
                 <tr id="chapa-{{ r.chapa }}"
                     class="hover:bg-gray-50 transition-colors
-                    {% if r.status == 'conferido' %}bg-green-50
+                    {% if r.item_status == 'baixado' %}bg-red-50
+                    {% elif r.status == 'conferido' %}bg-green-50
                     {% elif r.status == 'local_divergente' %}bg-orange-50
                     {% elif r.status == 'somente_xls' %}bg-yellow-50
                     {% else %}bg-blue-50{% endif %}">
@@ -293,6 +294,7 @@
                         {% endif %}
                     </td>
                     <td class="px-4 py-3 text-center">
+                        <div class="flex flex-col items-center gap-1">
                         {% if r.status == 'conferido' %}
                             <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✅ Conferido</span>
                         {% elif r.status == 'local_divergente' %}
@@ -302,6 +304,10 @@
                         {% else %}
                             <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-blue-100 text-blue-800">🔵 Só Banco</span>
                         {% endif %}
+                        {% if r.item_status == 'baixado' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-red-100 text-red-800">🚫 Baixado</span>
+                        {% endif %}
+                        </div>
                     </td>
                     <td class="px-4 py-3 text-right">
                         {% if r.status == 'somente_xls' %}

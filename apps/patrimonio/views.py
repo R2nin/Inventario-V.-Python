@@ -1563,7 +1563,7 @@ def conferencia_transferir_lote(request):
     """
     Transfere um conjunto de itens (selecionados via checkbox) para uma localização destino.
     POST: local_nome=<sala origem>  destino_pk=<pk destino>  pks=<id> pks=<id> ...
-    Atualiza o banco e o XLS de referência para cada item, igual à transferência individual.
+    Atualiza o banco e o XLS de referência usando operações em lote para evitar timeout.
     """
     from django.urls import reverse
 
@@ -1580,39 +1580,57 @@ def conferencia_transferir_lote(request):
 
     destino = get_object_or_404(Localizacao, pk=destino_pk)
 
-    itens = PatrimonioItem.objects.filter(pk__in=pks).select_related('localizacao')
-    transferidos = 0
+    # Busca todos os itens de uma vez
+    itens = list(PatrimonioItem.objects.filter(pk__in=pks).select_related('localizacao'))
+    transferidos = len(itens)
 
+    if transferidos == 0:
+        messages.warning(request, 'Nenhum item encontrado para transferir.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    # Atualiza todos os PatrimonioItem em uma única query SQL
+    PatrimonioItem.objects.filter(pk__in=pks).update(localizacao=destino)
+
+    # Atualiza o XLS em lote: busca todos os registros existentes de uma vez
+    chapas = [item.numero_chapa for item in itens]
+    xls_existentes = {
+        x.numero_chapa: x
+        for x in XLSReferenciaItem.objects.filter(numero_chapa__in=chapas)
+    }
+
+    xls_para_atualizar = []
+    xls_para_criar = []
     for item in itens:
-        loc_anterior = item.localizacao.nome if item.localizacao else 'sem localização'
-        item.localizacao = destino
-        item.save(update_fields=['localizacao', 'atualizado_em'])
-
-        xls_item = XLSReferenciaItem.objects.filter(numero_chapa=item.numero_chapa).first()
-        if xls_item:
+        if item.numero_chapa in xls_existentes:
+            xls_item = xls_existentes[item.numero_chapa]
             xls_item.local = destino.nome
-            xls_item.save(update_fields=['local'])
+            xls_para_atualizar.append(xls_item)
         else:
-            XLSReferenciaItem.objects.create(
+            xls_para_criar.append(XLSReferenciaItem(
                 numero_chapa=item.numero_chapa,
                 nome=item.nome,
                 data_aquisicao=item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
                 local=destino.nome,
                 status=item.status,
-            )
+            ))
 
-        LogAuditoria.registrar(
-            acao=LogAuditoria.ACAO_EDITAR,
-            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-            descricao=(
-                f'Conferência lote: transferiu [{item.numero_chapa}] {item.nome} '
-                f'de "{loc_anterior}" para "{destino.nome}" (XLS atualizado).'
-            ),
-            usuario=request.user,
-            entidade_id=str(item.pk),
-            entidade_nome=item.nome,
-        )
-        transferidos += 1
+    if xls_para_atualizar:
+        XLSReferenciaItem.objects.bulk_update(xls_para_atualizar, ['local'])
+    if xls_para_criar:
+        XLSReferenciaItem.objects.bulk_create(xls_para_criar)
+
+    # Um único registro de log para o lote inteiro
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_EDITAR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=(
+            f'Conferência lote: transferiu {transferidos} item(ns) de "{local_nome}" '
+            f'para "{destino.nome}" (XLS atualizado).'
+        ),
+        usuario=request.user,
+        entidade_id='',
+        entidade_nome=destino.nome,
+    )
 
     messages.success(
         request,
@@ -1815,6 +1833,7 @@ def conferencia_sala(request):
             'status':           status,
             'db_pk':            db.pk if db else None,
             'localizacao_atual': localizacao_atual,
+            'item_status':      db.status if db else '',
         })
 
     for db in itens_extras:
@@ -1826,6 +1845,7 @@ def conferencia_sala(request):
             'status':           'somente_db',
             'db_pk':            db.pk,
             'localizacao_atual': db.localizacao.nome if db.localizacao else '',
+            'item_status':      db.status,
         })
 
     conferidos      = sum(1 for r in resultados if r['status'] == 'conferido')
