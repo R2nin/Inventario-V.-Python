@@ -13,12 +13,12 @@
     </a>
     <div class="flex-1">
         <div class="flex flex-wrap items-center gap-3">
-            <h1 class="text-2xl font-bold text-gray-800">{{ item.nome }}</h1>
+            <h1 class="text-2xl font-bold {% if item.status == 'baixado' %}text-red-700{% else %}text-gray-800{% endif %}">{{ item.nome }}</h1>
             <span class="{{ item.get_status_badge_class }} text-sm px-3 py-1">
                 {{ item.get_status_display }}
             </span>
         </div>
-        <p class="text-gray-500 text-sm mt-1">Chapa Nº {{ item.numero_chapa }}</p>
+        <p class="{% if item.status == 'baixado' %}text-red-500{% else %}text-gray-500{% endif %} text-sm mt-1">Chapa Nº {{ item.numero_chapa }}</p>
     </div>
 
     <div class="flex gap-2 flex-shrink-0 flex-wrap">
@@ -128,9 +128,14 @@
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
             <h2 class="text-sm font-semibold text-gray-700 mb-3">Identificação</h2>
             <div class="text-center py-4">
-                <span class="block text-4xl font-bold text-blue-700 font-mono">{{ item.numero_chapa }}</span>
+                <span class="block text-4xl font-bold font-mono {% if item.status == 'baixado' %}text-red-700{% else %}text-blue-700{% endif %}">{{ item.numero_chapa }}</span>
                 <span class="text-xs text-gray-500 mt-1 block">Número da Chapa</span>
             </div>
+            {% if item.status == 'baixado' %}
+            <div class="mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 text-center font-medium">
+                🚫 Item Baixado — fora de uso
+            </div>
+            {% endif %}
             <div class="pt-3 border-t border-gray-100 text-xs text-gray-500 space-y-1">
                 <div class="flex justify-between">
                     <span>Cadastrado em:</span>

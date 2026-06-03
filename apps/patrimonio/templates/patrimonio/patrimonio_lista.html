@@ -2,6 +2,13 @@
 {% block title %}Patrimônio - Lista{% endblock %}
 
 {% block content %}
+<style>
+  tr.baixado-row td,
+  tr.baixado-row td a {
+    color: #b91c1c !important;
+    font-weight: 500;
+  }
+</style>
 
 <!-- Cabeçalho -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -93,7 +100,7 @@
             </thead>
             <tbody class="divide-y divide-gray-50">
                 {% for item in itens %}
-                <tr class="hover:bg-gray-50 transition-colors">
+                <tr class="hover:bg-gray-50 transition-colors{% if item.status == 'baixado' %} baixado-row bg-red-50{% endif %}">
                     <td class="px-4 py-3 font-mono text-gray-700">{{ item.numero_chapa }}</td>
                     <td class="px-4 py-3">
                         <a href="{% url 'patrimonio_detalhe' item.pk %}"
