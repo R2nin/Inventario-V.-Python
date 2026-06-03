@@ -18,6 +18,11 @@
     outline: 2px solid #6366f1;
     outline-offset: -2px;
   }
+  /* Linha de item baixado: fonte vermelha em todas as células */
+  tr.baixado-row td {
+    color: #b91c1c !important;
+    font-weight: 500;
+  }
 </style>
 
 <!-- Cabeçalho -->
@@ -269,12 +274,7 @@
             <tbody class="divide-y divide-gray-50">
                 {% for r in resultados %}
                 <tr id="chapa-{{ r.chapa }}"
-                    class="hover:bg-gray-50 transition-colors
-                    {% if r.is_baixado %}bg-red-50
-                    {% elif r.status == 'conferido' %}bg-green-50
-                    {% elif r.status == 'local_divergente' %}bg-orange-50
-                    {% elif r.status == 'somente_xls' %}bg-yellow-50
-                    {% else %}bg-blue-50{% endif %}">
+                    class="hover:bg-gray-50 transition-colors {% if r.is_baixado %}baixado-row bg-red-50{% elif r.status == 'conferido' %}bg-green-50{% elif r.status == 'local_divergente' %}bg-orange-50{% elif r.status == 'somente_xls' %}bg-yellow-50{% else %}bg-blue-50{% endif %}">
                     <td class="px-3 py-3 text-center">
                         {% if r.db_pk %}
                         <input type="checkbox" name="check-item" value="{{ r.db_pk }}"

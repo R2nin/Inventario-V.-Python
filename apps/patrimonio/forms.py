@@ -58,7 +58,7 @@ class PatrimonioItemForm(forms.ModelForm):
         # Campos que aparecerão no formulário (na ordem desejada)
         fields = [
             'numero_chapa', 'nome',
-            'localizacao', 'data_aquisicao', 'descricao',
+            'localizacao', 'status', 'data_aquisicao', 'descricao',
         ]
         widgets = {
             'numero_chapa': forms.NumberInput(attrs={
@@ -70,6 +70,9 @@ class PatrimonioItemForm(forms.ModelForm):
                 'placeholder': 'Ex: Notebook Dell Inspiron',
             }),
             'localizacao': forms.Select(attrs={
+                'class': 'form-input',
+            }),
+            'status': forms.Select(attrs={
                 'class': 'form-input',
             }),
             'data_aquisicao': forms.DateInput(
