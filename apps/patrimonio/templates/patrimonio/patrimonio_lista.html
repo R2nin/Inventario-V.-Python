@@ -2,13 +2,6 @@
 {% block title %}Patrimônio - Lista{% endblock %}
 
 {% block content %}
-<style>
-  tr.baixado-row td,
-  tr.baixado-row td a {
-    color: #b91c1c !important;
-    font-weight: 500;
-  }
-</style>
 
 <!-- Cabeçalho -->
 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
@@ -100,17 +93,17 @@
             </thead>
             <tbody class="divide-y divide-gray-50">
                 {% for item in itens %}
-                <tr class="hover:bg-gray-50 transition-colors{% if item.status == 'baixado' %} baixado-row bg-red-50{% endif %}">
-                    <td class="px-4 py-3 font-mono text-gray-700">{{ item.numero_chapa }}</td>
+                <tr class="transition-colors {% if item.status == 'baixado' %}bg-red-50 hover:bg-red-100{% else %}hover:bg-gray-50{% endif %}">
+                    <td class="px-4 py-3 font-mono {% if item.status == 'baixado' %}text-red-700 font-semibold{% else %}text-gray-700{% endif %}">{{ item.numero_chapa }}</td>
                     <td class="px-4 py-3">
                         <a href="{% url 'patrimonio_detalhe' item.pk %}"
-                           class="font-medium text-gray-800 hover:text-blue-600">
+                           class="font-medium {% if item.status == 'baixado' %}text-red-700 hover:text-red-900{% else %}text-gray-800 hover:text-blue-600{% endif %}">
                             {{ item.nome }}
                         </a>
                     </td>
-                    <td class="px-4 py-3 text-gray-600 hidden md:table-cell">{{ item.categoria|default:"—" }}</td>
-                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell break-words">{{ item.localizacao|default:"—" }}</td>
-                    <td class="px-4 py-3 text-gray-600 hidden lg:table-cell">
+                    <td class="px-4 py-3 hidden md:table-cell {% if item.status == 'baixado' %}text-red-600{% else %}text-gray-600{% endif %}">{{ item.categoria|default:"—" }}</td>
+                    <td class="px-4 py-3 hidden lg:table-cell break-words {% if item.status == 'baixado' %}text-red-600{% else %}text-gray-600{% endif %}">{{ item.localizacao|default:"—" }}</td>
+                    <td class="px-4 py-3 hidden lg:table-cell {% if item.status == 'baixado' %}text-red-600{% else %}text-gray-600{% endif %}">
                         {% if item.valor %}R$ {{ item.valor|floatformat:"2" }}{% else %}—{% endif %}
                     </td>
                     <td class="px-4 py-3">
