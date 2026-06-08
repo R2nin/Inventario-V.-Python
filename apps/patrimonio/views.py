@@ -748,7 +748,7 @@ def fornecedor_deletar(request, pk):
 def localizacao_lista(request):
     """Lista todas as localizações."""
     busca = request.GET.get('busca', '')
-    localizacoes = Localizacao.objects.all()
+    localizacoes = Localizacao.objects.annotate(total_itens=Count('patrimonioitem'))
 
     if busca:
         localizacoes = localizacoes.filter(nome__icontains=busca)
