@@ -26,7 +26,7 @@ from django.contrib import messages
 from django.db.models import Q, Sum, Count
 from django.core.paginator import Paginator
 
-from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria, XLSReferenciaItem
+from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria, XLSReferenciaItem, ManutencaoSolicitacao
 from .forms import (
     LoginForm, PatrimonioItemForm, FornecedorForm,
     LocalizacaoForm, UsuarioForm, ImportacaoForm, BuscaPatrimonioForm
@@ -2270,3 +2270,99 @@ def etiquetas_view(request):
     return render(request, 'patrimonio/etiquetas.html', {
         'pagina_ativa': 'etiquetas',
     })
+
+
+# ==============================================================
+# MANUTENÇÃO
+# ==============================================================
+
+@login_required
+def manutencao_lista(request):
+    """Lista todas as solicitações de manutenção."""
+    filtro = request.GET.get('filtro', 'pendente')
+    qs = ManutencaoSolicitacao.objects.all()
+    if filtro == 'pendente':
+        qs = qs.filter(status='pendente')
+    elif filtro == 'concluido':
+        qs = qs.filter(status='concluido')
+    # filtro == 'todos' → sem filtro
+
+    pendentes  = ManutencaoSolicitacao.objects.filter(status='pendente').count()
+    concluidos = ManutencaoSolicitacao.objects.filter(status='concluido').count()
+
+    return render(request, 'patrimonio/manutencao_lista.html', {
+        'solicitacoes': qs,
+        'filtro':       filtro,
+        'pendentes':    pendentes,
+        'concluidos':   concluidos,
+        'pagina_ativa': 'manutencao',
+    })
+
+
+@login_required
+def manutencao_registrar(request):
+    """Recebe AJAX POST e salva a solicitação; também marca o item como 'manutencao'."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False}, status=405)
+
+    chapa    = request.POST.get('chapa', '').strip()
+    nome     = request.POST.get('nome_item', '').strip()
+    sala     = request.POST.get('sala', '').strip()
+    descricao = request.POST.get('descricao', '').strip()
+
+    if not chapa or not sala or not descricao:
+        return JsonResponse({'ok': False, 'erro': 'Dados incompletos'}, status=400)
+
+    try:
+        chapa_int = int(chapa)
+    except ValueError:
+        return JsonResponse({'ok': False, 'erro': 'Chapa inválida'}, status=400)
+
+    ManutencaoSolicitacao.objects.create(
+        numero_chapa=chapa_int,
+        nome_item=nome,
+        sala=sala,
+        descricao=descricao,
+    )
+
+    # Atualiza status do item para 'manutencao'
+    PatrimonioItem.objects.filter(numero_chapa=chapa_int).update(
+        status=PatrimonioItem.STATUS_MANUTENCAO
+    )
+
+    return JsonResponse({'ok': True})
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def manutencao_concluir(request, pk):
+    """Marca a solicitação como concluída e reverte o item para 'ativo'."""
+    from django.utils import timezone
+    sol = get_object_or_404(ManutencaoSolicitacao, pk=pk)
+    sol.status       = ManutencaoSolicitacao.STATUS_CONCLUIDO
+    sol.concluido_em = timezone.now()
+    sol.save()
+
+    # Só volta para ativo se não houver outras solicitações pendentes para o mesmo item
+    outras_pendentes = ManutencaoSolicitacao.objects.filter(
+        numero_chapa=sol.numero_chapa,
+        status=ManutencaoSolicitacao.STATUS_PENDENTE,
+    ).exists()
+    if not outras_pendentes:
+        PatrimonioItem.objects.filter(numero_chapa=sol.numero_chapa).update(
+            status=PatrimonioItem.STATUS_ATIVO
+        )
+
+    messages.success(request, f'Manutenção do item {sol.numero_chapa} marcada como concluída.')
+    return redirect(f'{request.META.get("HTTP_REFERER", "/manutencao/")}')
+
+
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def manutencao_apagar(request, pk):
+    """Apaga definitivamente uma solicitação."""
+    sol = get_object_or_404(ManutencaoSolicitacao, pk=pk)
+    chapa = sol.numero_chapa
+    sol.delete()
+    messages.success(request, f'Solicitação do item {chapa} removida.')
+    return redirect(f'{request.META.get("HTTP_REFERER", "/manutencao/")}')

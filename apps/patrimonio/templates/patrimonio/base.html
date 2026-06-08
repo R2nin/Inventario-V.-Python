@@ -116,6 +116,13 @@
                         Conferência
                     </a>
 
+                    <!-- Manutenção -->
+                    <a href="{% url 'manutencao_lista' %}"
+                       class="nav-item px-3 py-2 rounded-md text-sm font-medium
+                              {% if pagina_ativa == 'manutencao' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                        🔧 Manutenção
+                    </a>
+
                     <!-- Scanner QR Code -->
                     <a href="{% url 'scanner_qrcode' %}"
                        class="nav-item px-3 py-2 rounded-md text-sm font-medium flex items-center gap-1.5
@@ -223,6 +230,11 @@
                    class="block px-3 py-2 rounded-md text-sm font-medium
                           {% if pagina_ativa == 'conferencia' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
                     Conferência
+                </a>
+                <a href="{% url 'manutencao_lista' %}"
+                   class="block px-3 py-2 rounded-md text-sm font-medium
+                          {% if pagina_ativa == 'manutencao' %}bg-blue-900 text-white{% else %}text-blue-100 hover:bg-blue-700{% endif %}">
+                    🔧 Manutenção
                 </a>
                 <a href="{% url 'scanner_qrcode' %}"
                    class="block px-3 py-2 rounded-md text-sm font-medium flex items-center gap-2

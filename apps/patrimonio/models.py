@@ -309,3 +309,34 @@ class XLSReferenciaItem(models.Model):
     def __str__(self):
         return f'[{self.numero_chapa}] {self.nome}'
 
+
+# ============================================================
+# SOLICITAÇÕES DE MANUTENÇÃO
+# ============================================================
+class ManutencaoSolicitacao(models.Model):
+    STATUS_PENDENTE  = 'pendente'
+    STATUS_CONCLUIDO = 'concluido'
+    STATUS_CHOICES = [
+        (STATUS_PENDENTE,  'Pendente'),
+        (STATUS_CONCLUIDO, 'Concluído'),
+    ]
+
+    numero_chapa = models.IntegerField(verbose_name='Número da Chapa')
+    nome_item    = models.CharField(max_length=500, blank=True, verbose_name='Nome do Item')
+    sala         = models.CharField(max_length=255, verbose_name='Sala')
+    descricao    = models.TextField(verbose_name='Descrição')
+    status       = models.CharField(
+        max_length=20, choices=STATUS_CHOICES,
+        default=STATUS_PENDENTE, verbose_name='Status'
+    )
+    criado_em    = models.DateTimeField(auto_now_add=True, verbose_name='Solicitado em')
+    concluido_em = models.DateTimeField(null=True, blank=True, verbose_name='Concluído em')
+
+    class Meta:
+        verbose_name = 'Solicitação de Manutenção'
+        verbose_name_plural = 'Solicitações de Manutenção'
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f'[{self.numero_chapa}] {self.sala} — {self.criado_em:%d/%m/%Y %H:%M}'
+

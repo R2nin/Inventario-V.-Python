@@ -123,4 +123,12 @@ urlpatterns = [
     # ETIQUETAS COLORIDAS
     # ----------------------------------------------------------
     path('etiquetas/', views.etiquetas_view, name='etiquetas'),
+
+    # ----------------------------------------------------------
+    # MANUTENÇÃO
+    # ----------------------------------------------------------
+    path('manutencao/',                        views.manutencao_lista,     name='manutencao_lista'),
+    path('manutencao/registrar/',              views.manutencao_registrar, name='manutencao_registrar'),
+    path('manutencao/<int:pk>/concluir/',      views.manutencao_concluir,  name='manutencao_concluir'),
+    path('manutencao/<int:pk>/apagar/',        views.manutencao_apagar,    name='manutencao_apagar'),
 ]

@@ -1,0 +1,138 @@
+{% extends 'patrimonio/base.html' %}
+{% block title %}Manutenção{% endblock %}
+
+{% block content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl font-bold text-gray-800">Solicitações de Manutenção</h1>
+        <p class="text-gray-500 text-sm">Pedidos enviados via WhatsApp durante a conferência</p>
+    </div>
+</div>
+
+<!-- Cards de resumo -->
+<div class="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+    <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 text-center">
+        <p class="text-3xl font-bold text-yellow-700">{{ pendentes }}</p>
+        <p class="text-sm text-yellow-600 mt-1">Pendentes</p>
+    </div>
+    <div class="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
+        <p class="text-3xl font-bold text-green-700">{{ concluidos }}</p>
+        <p class="text-sm text-green-600 mt-1">Concluídos</p>
+    </div>
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center col-span-2 md:col-span-1">
+        <p class="text-3xl font-bold text-gray-700">{{ pendentes|add:concluidos }}</p>
+        <p class="text-sm text-gray-600 mt-1">Total</p>
+    </div>
+</div>
+
+<!-- Filtros -->
+<div class="flex gap-2 mb-4">
+    <a href="?filtro=pendente"
+       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+              {% if filtro == 'pendente' %}bg-yellow-500 text-white{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+        Pendentes
+    </a>
+    <a href="?filtro=concluido"
+       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+              {% if filtro == 'concluido' %}bg-green-600 text-white{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+        Concluídos
+    </a>
+    <a href="?filtro=todos"
+       class="px-4 py-2 rounded-lg text-sm font-medium transition-colors
+              {% if filtro == 'todos' %}bg-blue-700 text-white{% else %}bg-white border border-gray-200 text-gray-600 hover:bg-gray-50{% endif %}">
+        Todos
+    </a>
+</div>
+
+<!-- Tabela -->
+<div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+            <thead>
+                <tr class="bg-gray-50 border-b border-gray-200">
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Data/Hora</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Chapa</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Item</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Sala</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-600">Descrição</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600">Status</th>
+                    {% if user.is_staff %}
+                    <th class="px-4 py-3 text-right font-semibold text-gray-600">Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+                {% for s in solicitacoes %}
+                <tr class="hover:bg-gray-50 transition-colors {% if s.status == 'concluido' %}opacity-60{% endif %}">
+                    <td class="px-4 py-3 text-gray-500 whitespace-nowrap">
+                        {{ s.criado_em|date:"d/m/Y H:i" }}
+                    </td>
+                    <td class="px-4 py-3 font-mono font-medium text-gray-700">
+                        <a href="{% url 'buscar_por_chapa' s.numero_chapa %}"
+                           target="_blank"
+                           class="hover:text-blue-600 hover:underline">
+                            {{ s.numero_chapa }}
+                        </a>
+                    </td>
+                    <td class="px-4 py-3 text-gray-700">{{ s.nome_item|default:"—" }}</td>
+                    <td class="px-4 py-3 text-gray-600">{{ s.sala }}</td>
+                    <td class="px-4 py-3 text-gray-600 max-w-xs">{{ s.descricao }}</td>
+                    <td class="px-4 py-3 text-center">
+                        {% if s.status == 'pendente' %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-yellow-100 text-yellow-800">
+                                ⏳ Pendente
+                            </span>
+                        {% else %}
+                            <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
+                                ✅ Concluído
+                            </span>
+                            {% if s.concluido_em %}
+                            <p class="text-xs text-gray-400 mt-0.5">{{ s.concluido_em|date:"d/m/Y H:i" }}</p>
+                            {% endif %}
+                        {% endif %}
+                    </td>
+                    {% if user.is_staff %}
+                    <td class="px-4 py-3 text-right">
+                        <div class="flex flex-col items-end gap-1">
+                            {% if s.status == 'pendente' %}
+                            <form method="post" action="{% url 'manutencao_concluir' s.pk %}">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs"
+                                        title="Marcar como concluído">
+                                    ✓ Concluir
+                                </button>
+                            </form>
+                            {% endif %}
+                            <form method="post" action="{% url 'manutencao_apagar' s.pk %}"
+                                  onsubmit="return confirm('Apagar esta solicitação definitivamente?')">
+                                {% csrf_token %}
+                                <button type="submit"
+                                        class="px-2 py-1 bg-red-100 hover:bg-red-200 text-red-700 rounded text-xs">
+                                    Apagar
+                                </button>
+                            </form>
+                        </div>
+                    </td>
+                    {% endif %}
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="px-4 py-12 text-center text-gray-400">
+                        {% if filtro == 'pendente' %}
+                            Nenhuma solicitação pendente.
+                        {% elif filtro == 'concluido' %}
+                            Nenhuma manutenção concluída ainda.
+                        {% else %}
+                            Nenhuma solicitação registrada.
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

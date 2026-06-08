@@ -488,6 +488,19 @@ function enviarManutencaoWhatsApp() {
         document.getElementById('manutencao-descricao').focus();
         return;
     }
+
+    // Salva no banco silenciosamente (não bloqueia o WhatsApp)
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        var fd = new FormData();
+        fd.append('csrfmiddlewaretoken', csrfToken.value);
+        fd.append('chapa',     _manutencaoChapa);
+        fd.append('nome_item', _manutencaoNome);
+        fd.append('sala',      _manutencaoLocal);
+        fd.append('descricao', descricao);
+        fetch('{% url "manutencao_registrar" %}', { method: 'POST', body: fd });
+    }
+
     var mensagem =
         'Solicitação de Manutenção\n' +
         'Patrimônio: ' + _manutencaoChapa + '\n' +
