@@ -160,18 +160,43 @@
 
     <!-- Paginação -->
     {% if itens.has_other_pages %}
-    <div class="px-4 py-3 border-t border-gray-100 flex items-center justify-between text-sm">
+    <div class="px-4 py-3 border-t border-gray-100 flex flex-wrap items-center justify-between gap-3 text-sm">
+        <!-- Info -->
         <p class="text-gray-500">
-            Página {{ itens.number }} de {{ itens.paginator.num_pages }}
+            Página <strong>{{ itens.number }}</strong> de <strong>{{ itens.paginator.num_pages }}</strong>
+            &mdash; {{ total }} item(ns)
         </p>
-        <div class="flex gap-1">
+
+        <div class="flex items-center gap-2 flex-wrap">
+            <!-- Anterior -->
             {% if itens.has_previous %}
-            <a href="?pagina={{ itens.previous_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}"
+            <a href="?pagina={{ itens.previous_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.localizacao %}&localizacao={{ request.GET.localizacao }}{% endif %}"
                class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-700">← Anterior</a>
+            {% else %}
+            <span class="px-3 py-1.5 bg-gray-50 rounded text-gray-300 cursor-not-allowed">← Anterior</span>
             {% endif %}
+
+            <!-- Ir para página -->
+            <form method="GET" class="flex items-center gap-1" onsubmit="return validarPagina(this)">
+                {% if request.GET.busca %}<input type="hidden" name="busca" value="{{ request.GET.busca }}">{% endif %}
+                {% if request.GET.status %}<input type="hidden" name="status" value="{{ request.GET.status }}">{% endif %}
+                {% if request.GET.localizacao %}<input type="hidden" name="localizacao" value="{{ request.GET.localizacao }}">{% endif %}
+                <span class="text-gray-400">Ir para</span>
+                <input type="number" name="pagina" min="1" max="{{ itens.paginator.num_pages }}"
+                       placeholder="{{ itens.number }}"
+                       class="w-16 px-2 py-1.5 border border-gray-300 rounded text-center text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <button type="submit"
+                        class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded transition-colors">
+                    Ir
+                </button>
+            </form>
+
+            <!-- Próxima -->
             {% if itens.has_next %}
-            <a href="?pagina={{ itens.next_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}"
+            <a href="?pagina={{ itens.next_page_number }}{% if request.GET.busca %}&busca={{ request.GET.busca }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}{% if request.GET.localizacao %}&localizacao={{ request.GET.localizacao }}{% endif %}"
                class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded">Próxima →</a>
+            {% else %}
+            <span class="px-3 py-1.5 bg-blue-100 rounded text-blue-300 cursor-not-allowed">Próxima →</span>
             {% endif %}
         </div>
     </div>
@@ -222,6 +247,17 @@
 {% csrf_token %}
 
 <script>
+function validarPagina(form) {
+    var input = form.querySelector('input[name="pagina"]');
+    var max   = parseInt(input.max);
+    var val   = parseInt(input.value);
+    if (!val || val < 1 || val > max) {
+        input.focus();
+        return false;
+    }
+    return true;
+}
+
 var _manutencaoChapa = '';
 var _manutencaoNome  = '';
 var _manutencaoLocal = '';
