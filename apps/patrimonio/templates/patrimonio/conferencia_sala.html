@@ -385,7 +385,7 @@
                         {% endif %}
                         {% if r.db_pk %}
                             <button type="button"
-                                    onclick="abrirModalManutencao('{{ r.chapa }}', '{{ local_nome|escapejs }}')"
+                                    onclick="abrirModalManutencao('{{ r.chapa }}', '{{ local_nome|escapejs }}', '{{ r.nome_db|default:r.nome_xls|escapejs }}')"
                                     class="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs"
                                     title="Solicitar manutenção via WhatsApp">
                                 🔧 Manutenção
@@ -463,12 +463,14 @@ function fecharModalLote() {
 // ── Manutenção ──────────────────────────────────────────────────────────────
 var _manutencaoChapa = '';
 var _manutencaoLocal = '';
+var _manutencaoNome  = '';
 
-function abrirModalManutencao(chapa, local) {
+function abrirModalManutencao(chapa, local, nome) {
     _manutencaoChapa = chapa;
     _manutencaoLocal = local;
+    _manutencaoNome  = nome || '';
     document.getElementById('txt-manutencao-info').textContent =
-        'Patrimônio ' + chapa + ' — ' + local;
+        'Patrimônio ' + chapa + (nome ? ' — ' + nome : '') + ' | ' + local;
     document.getElementById('manutencao-descricao').value = '';
     document.getElementById('modal-manutencao').classList.remove('hidden');
     setTimeout(function() {
@@ -489,6 +491,7 @@ function enviarManutencaoWhatsApp() {
     var mensagem =
         'Solicitação de Manutenção\n' +
         'Patrimônio: ' + _manutencaoChapa + '\n' +
+        (_manutencaoNome ? 'Item: ' + _manutencaoNome + '\n' : '') +
         'Sala: ' + _manutencaoLocal + '\n' +
         'Descrição: ' + descricao;
     var url = 'https://wa.me/5518997404514?text=' + encodeURIComponent(mensagem);
