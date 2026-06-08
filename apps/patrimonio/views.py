@@ -795,18 +795,32 @@ def localizacao_editar(request, pk):
     loc = get_object_or_404(Localizacao, pk=pk)
 
     if request.method == 'POST':
+        nome_antigo = loc.nome
         form = LocalizacaoForm(request.POST, instance=loc)
         if form.is_valid():
             form.save()
+            nome_novo = loc.nome
+
+            # Se o nome mudou, atualiza os registros do XLS de referência
+            if nome_antigo != nome_novo:
+                atualizados = XLSReferenciaItem.objects.filter(
+                    local=nome_antigo
+                ).update(local=nome_novo)
+            else:
+                atualizados = 0
+
             LogAuditoria.registrar(
                 acao=LogAuditoria.ACAO_EDITAR,
                 tipo_entidade=LogAuditoria.ENTIDADE_LOCALIZACAO,
-                descricao=f'Editou a localização "{loc.nome}".',
+                descricao=f'Editou a localização "{nome_antigo}" → "{nome_novo}".',
                 usuario=request.user,
                 entidade_id=loc.pk,
-                entidade_nome=loc.nome,
+                entidade_nome=nome_novo,
             )
-            messages.success(request, f'Localização "{loc.nome}" atualizada!')
+            if atualizados:
+                messages.success(request, f'Localização renomeada de "{nome_antigo}" para "{nome_novo}". {atualizados} item(ns) do XLS atualizados.')
+            else:
+                messages.success(request, f'Localização "{nome_novo}" atualizada!')
             return redirect('localizacao_lista')
     else:
         form = LocalizacaoForm(instance=loc)
