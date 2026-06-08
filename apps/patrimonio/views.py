@@ -1491,12 +1491,6 @@ def conferencia_inicio(request):
         if local:
             locais[local] = locais.get(local, 0) + 1
 
-    # Inclui salas cadastradas no banco que não aparecem no XLS (count = 0)
-    for loc in Localizacao.objects.all():
-        nome = loc.nome.strip()
-        if nome and nome not in locais:
-            locais[nome] = 0
-
     locais_lista = sorted(locais.items())  # Ordena A-Z
 
     return render(request, 'patrimonio/conferencia_inicio.html', {
