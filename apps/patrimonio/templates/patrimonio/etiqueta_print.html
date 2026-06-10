@@ -38,18 +38,12 @@
 
 <!--
     Etiqueta 5cm × 3cm.
-    Centralização via margin: 2mm na tabela principal.
-    Com @page margin: 0, a tabela ocupa 4.6cm × 2.6cm e
-    fica centralizada com 2mm uniformes em torno do conteúdo.
-    Layout via <table> — compatível com Chrome e drivers de
-    impressora térmica (incluindo ELGIN L42Pro).
+    Coluna esquerda (tabela): QR Code centralizado.
+    Coluna direita: position:absolute para cada elemento —
+    garante que texto longo não expande o layout.
 
-    Estrutura:
-      Coluna esquerda (2.75cm): QR Code centralizado
-      Coluna direita  (1.85cm): tabela interna com 3 linhas
-        Linha 1 (~1.0cm) : número da chapa
-        Linha 2 (auto)   : localização
-        Linha 3 (~0.8cm) : logo FEMA
+    margin: 1mm 5mm 1mm 0mm compensa offset do driver ELGIN L42Pro.
+    Área útil: 4.5cm × 2.8cm (1+45+5=51? não — 0+45+5=50mm ✓, 1+28+1=30mm ✓)
 -->
 <table style="
     width: 4.5cm; height: 2.8cm;
@@ -74,69 +68,69 @@
              style="display: inline-block; width: 2.5cm; height: 2.5cm;">
     </td>
 
-    <!-- Coluna direita: chapa / localização / logo -->
+    <!-- Coluna direita: position relative — filhos em absolute -->
     <td style="
         width: 1.8cm;
         padding: 0;
-        vertical-align: top;
+        position: relative;
+        overflow: hidden;
     ">
-        <table style="width: 100%; height: 2.8cm; border-collapse: collapse;">
+        <!-- Chapa: topo fixo, altura 1.0cm -->
+        <div style="
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1.0cm;
+            display: table; width: 1.8cm;
+        ">
+            <div style="display: table-cell; vertical-align: middle; text-align: center; padding-top: 1mm;">
+                <span style="
+                    font-family: 'ITC Eras Bold', 'Eras Bold ITC', Arial, sans-serif;
+                    font-size: 15pt; font-weight: bold;
+                    color: #000; line-height: 1;
+                    white-space: nowrap;
+                ">{{ item.numero_chapa }}</span>
+            </div>
+        </div>
 
-            <!-- Chapa -->
-            <tr style="height: 1.0cm;">
-                <td style="
-                    vertical-align: middle;
-                    text-align: center;
-                    overflow: hidden;
-                    padding-top: 1mm;
-                ">
-                    <span style="
-                        font-family: 'ITC Eras Bold', 'Eras Bold ITC', Arial, sans-serif;
-                        font-size: 15pt; font-weight: bold;
-                        color: #000; line-height: 1;
-                        white-space: nowrap;
-                    ">{{ item.numero_chapa }}</span>
-                </td>
-            </tr>
+        <!-- Localização: meio fixo entre chapa e logo -->
+        <div style="
+            position: absolute;
+            top: 1.0cm; left: 0; right: 0;
+            bottom: 0.8cm;
+            overflow: hidden;
+            display: table; width: 1.8cm;
+        ">
+            <div style="display: table-cell; vertical-align: middle; text-align: center; padding: 0 1mm;">
+                {% if item.localizacao %}
+                <span style="
+                    font-family: Arial, sans-serif;
+                    font-size: 5.5pt; font-weight: 600;
+                    color: #000; line-height: 1.2;
+                    word-break: break-word;
+                ">{{ item.localizacao }}</span>
+                {% endif %}
+            </div>
+        </div>
 
-            <!-- Localização -->
-            <tr style="height: 1.1cm;">
-                <td style="
-                    vertical-align: middle;
-                    text-align: center;
-                    padding: 0 1mm 1mm 1mm;
-                    overflow: hidden;
-                ">
-                    {% if item.localizacao %}
-                    <span style="
-                        font-family: Arial, sans-serif;
-                        font-size: 5.5pt; font-weight: 600;
-                        color: #000; line-height: 1.2;
-                        word-break: break-word;
-                    ">{{ item.localizacao }}</span>
-                    {% endif %}
-                </td>
-            </tr>
+        <!-- Logo FEMA: rodapé fixo, altura 0.8cm -->
+        <div style="
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            height: 0.8cm;
+            display: table; width: 1.8cm;
+        ">
+            <div style="display: table-cell; vertical-align: middle; text-align: center; padding-bottom: 1mm;">
+                <img src="{% static 'img/logo_fema.png' %}"
+                     alt="FEMA"
+                     style="
+                         display: inline-block;
+                         width: 1.4cm;
+                         max-height: 0.6cm;
+                         object-fit: contain;
+                     ">
+            </div>
+        </div>
 
-            <!-- Logo FEMA -->
-            <tr style="height: 0.7cm;">
-                <td style="
-                    vertical-align: middle;
-                    text-align: center;
-                    padding-bottom: 1mm;
-                ">
-                    <img src="{% static 'img/logo_fema.png' %}"
-                         alt="FEMA"
-                         style="
-                             display: inline-block;
-                             width: 1.4cm;
-                             max-height: 0.6cm;
-                             object-fit: contain;
-                         ">
-                </td>
-            </tr>
-
-        </table>
     </td>
 
 </tr>
