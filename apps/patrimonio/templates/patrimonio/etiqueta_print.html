@@ -88,10 +88,11 @@
                     vertical-align: middle;
                     text-align: center;
                     overflow: hidden;
+                    padding-top: 1mm;
                 ">
                     <span style="
                         font-family: 'ITC Eras Bold', 'Eras Bold ITC', Arial, sans-serif;
-                        font-size: 14pt; font-weight: bold;
+                        font-size: 15pt; font-weight: bold;
                         color: #000; line-height: 1;
                         white-space: nowrap;
                     ">{{ item.numero_chapa }}</span>
@@ -103,7 +104,7 @@
                 <td style="
                     vertical-align: middle;
                     text-align: center;
-                    padding: 0 1mm;
+                    padding: 0 1mm 1mm 1mm;
                     overflow: hidden;
                 ">
                     {% if item.localizacao %}
@@ -122,6 +123,7 @@
                 <td style="
                     vertical-align: middle;
                     text-align: center;
+                    padding-bottom: 1mm;
                 ">
                     <img src="{% static 'img/logo_fema.png' %}"
                          alt="FEMA"
