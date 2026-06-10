@@ -68,69 +68,60 @@
              style="display: inline-block; width: 2.5cm; height: 2.5cm;">
     </td>
 
-    <!-- Coluna direita: position relative — filhos em absolute -->
-    <td style="
-        width: 1.8cm;
-        padding: 0;
-        position: relative;
-        overflow: hidden;
-    ">
-        <!-- Chapa: topo fixo, altura 1.0cm -->
-        <div style="
-            position: absolute;
-            top: 0; left: 0; right: 0;
-            height: 1.0cm;
-            display: table; width: 1.8cm;
-        ">
-            <div style="display: table-cell; vertical-align: middle; text-align: center; padding-top: 1mm;">
-                <span style="
-                    font-family: 'ITC Eras Bold', 'Eras Bold ITC', Arial, sans-serif;
-                    font-size: 15pt; font-weight: bold;
-                    color: #000; line-height: 1;
-                    white-space: nowrap;
-                ">{{ item.numero_chapa }}</span>
-            </div>
-        </div>
+    <!-- Coluna direita -->
+    <td style="width: 1.8cm; padding: 0; vertical-align: top;">
+        <!-- div com position:relative é o containing block dos filhos absolutos -->
+        <div style="position: relative; width: 1.8cm; height: 2.8cm; overflow: hidden;">
 
-        <!-- Localização: meio fixo entre chapa e logo -->
-        <div style="
-            position: absolute;
-            top: 1.0cm; left: 0; right: 0;
-            bottom: 0.8cm;
-            overflow: hidden;
-            display: table; width: 1.8cm;
-        ">
-            <div style="display: table-cell; vertical-align: middle; text-align: center; padding: 0 1mm;">
-                {% if item.localizacao %}
-                <span style="
-                    font-family: Arial, sans-serif;
-                    font-size: 5.5pt; font-weight: 600;
-                    color: #000; line-height: 1.2;
-                    word-break: break-word;
-                ">{{ item.localizacao }}</span>
-                {% endif %}
+            <!-- Chapa: topo fixo, altura 1.0cm -->
+            <div style="
+                position: absolute;
+                top: 0; left: 0; right: 0; height: 1.0cm;
+                display: table; width: 1.8cm;
+            ">
+                <div style="display: table-cell; vertical-align: middle; text-align: center; padding-top: 1mm;">
+                    <span style="
+                        font-family: 'ITC Eras Bold', 'Eras Bold ITC', Arial, sans-serif;
+                        font-size: 15pt; font-weight: bold;
+                        color: #000; line-height: 1;
+                        white-space: nowrap;
+                    ">{{ item.numero_chapa }}</span>
+                </div>
             </div>
-        </div>
 
-        <!-- Logo FEMA: rodapé fixo, altura 0.8cm -->
-        <div style="
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            height: 0.8cm;
-            display: table; width: 1.8cm;
-        ">
-            <div style="display: table-cell; vertical-align: middle; text-align: center; padding-bottom: 1mm;">
-                <img src="{% static 'img/logo_fema.png' %}"
-                     alt="FEMA"
-                     style="
-                         display: inline-block;
-                         width: 1.4cm;
-                         max-height: 0.6cm;
-                         object-fit: contain;
-                     ">
+            <!-- Localização: zona central entre chapa e logo -->
+            <div style="
+                position: absolute;
+                top: 1.0cm; left: 0; right: 0; bottom: 0.8cm;
+                overflow: hidden;
+                display: table; width: 1.8cm;
+            ">
+                <div style="display: table-cell; vertical-align: middle; text-align: center; padding: 0 1mm;">
+                    {% if item.localizacao %}
+                    <span style="
+                        font-family: Arial, sans-serif;
+                        font-size: 5.5pt; font-weight: 600;
+                        color: #000; line-height: 1.2;
+                        word-break: break-word;
+                    ">{{ item.localizacao }}</span>
+                    {% endif %}
+                </div>
             </div>
-        </div>
 
+            <!-- Logo FEMA: rodapé fixo, altura 0.8cm -->
+            <div style="
+                position: absolute;
+                bottom: 0; left: 0; right: 0; height: 0.8cm;
+                display: table; width: 1.8cm;
+            ">
+                <div style="display: table-cell; vertical-align: middle; text-align: center; padding-bottom: 1mm;">
+                    <img src="{% static 'img/logo_fema.png' %}"
+                         alt="FEMA"
+                         style="display: inline-block; width: 1.4cm; max-height: 0.6cm; object-fit: contain;">
+                </div>
+            </div>
+
+        </div>
     </td>
 
 </tr>
