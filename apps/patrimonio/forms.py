@@ -100,6 +100,16 @@ class PatrimonioItemForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields['localizacao'].empty_label = 'Selecione uma localização...'
         self.fields['data_aquisicao'].input_formats = ['%Y-%m-%d', '%d/%m/%Y']
+        # Ao criar (sem instância salva), status não é enviado no POST pois o campo
+        # fica oculto no template. Tornamos não obrigatório para não barrar o form.
+        if not self.instance.pk:
+            self.fields['status'].required = False
+
+    def clean_status(self):
+        status = self.cleaned_data.get('status')
+        if not status:
+            return PatrimonioItem.STATUS_ATIVO
+        return status
 
 
 # ============================================================
