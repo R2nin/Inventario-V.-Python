@@ -2,6 +2,25 @@
 {% block title %}{{ titulo }} - Patrimônio{% endblock %}
 
 {% block content %}
+<link href="https://cdn.jsdelivr.net/npm/tom-select@2/dist/css/tom-select.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2/dist/js/tom-select.complete.min.js"></script>
+<style>
+    .ts-wrapper { width: 100%; }
+    .ts-control {
+        width: 100%; padding: 0.5rem 0.75rem;
+        border: 1px solid #d1d5db; border-radius: 0.5rem;
+        font-size: 0.875rem; background: white;
+        box-shadow: none !important;
+    }
+    .ts-wrapper.focus .ts-control {
+        border-color: #3b82f6;
+        outline: 2px solid #bfdbfe;
+        outline-offset: 0;
+    }
+    .ts-dropdown { border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.875rem; }
+    .ts-dropdown .option.selected, .ts-dropdown .option:hover { background: #eff6ff; color: #1e40af; }
+    .ts-dropdown .active { background: #dbeafe !important; color: #1e3a8a !important; }
+</style>
 
 <!-- Cabeçalho com botão voltar -->
 <div class="flex items-center gap-3 mb-4">
@@ -375,6 +394,22 @@ if (inputQtd) {
     inputChapa.addEventListener('input', atualizarPreview);
     inputQtd.addEventListener('input', atualizarPreview);
 }
+</script>
+{% endif %}
+
+{% if not local_travado %}
+<script>
+new TomSelect('#id_localizacao', {
+    create: false,
+    maxOptions: null,
+    placeholder: 'Digite para buscar...',
+    score: function(search) {
+        var needle = search.toLowerCase();
+        return function(item) {
+            return item.text.toLowerCase().includes(needle) ? 1 : 0;
+        };
+    }
+});
 </script>
 {% endif %}
 
