@@ -104,10 +104,13 @@
                 ">
                     {% if item.localizacao %}
                     <span style="
+                        display: inline-block;
                         font-family: 'Arial Narrow', 'Arial Condensed', Arial, sans-serif;
                         font-size: 5.5pt; font-weight: 600;
-                        color: #000; line-height: 0.5;
+                        color: #000; line-height: 1.2;
                         word-break: break-word;
+                        transform: scaleY(0.55);
+                        transform-origin: top center;
                     ">{{ item.localizacao }}</span>
                     {% endif %}
                 </td>
