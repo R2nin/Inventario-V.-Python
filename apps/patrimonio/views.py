@@ -1491,7 +1491,8 @@ def _carregar_xls_dados():
 def conferencia_inicio(request):
     """
     Página inicial da conferência.
-    Lista todas as localizações do XLS com contagem de itens.
+    Lista todas as localizações do XLS com contagem de itens,
+    incluindo localizações cadastradas no banco que não estão no XLS.
     """
     dados = _carregar_xls_dados()
     if not dados:
@@ -1504,6 +1505,12 @@ def conferencia_inicio(request):
         local = item.get('local', '').strip()
         if local:
             locais[local] = locais.get(local, 0) + 1
+
+    # Inclui localizações cadastradas no banco que não aparecem no XLS
+    # (criadas manualmente ou renomeadas sem correspondência no XLS)
+    for loc in Localizacao.objects.all():
+        if loc.nome not in locais:
+            locais[loc.nome] = PatrimonioItem.objects.filter(localizacao=loc).count()
 
     locais_lista = sorted(locais.items())  # Ordena A-Z
 
