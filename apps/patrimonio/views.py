@@ -26,7 +26,7 @@ from django.contrib import messages
 from django.db.models import Q, Sum, Count
 from django.core.paginator import Paginator
 
-from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria, XLSReferenciaItem, ManutencaoSolicitacao
+from .models import PatrimonioItem, Fornecedor, Localizacao, LogAuditoria, XLSReferenciaItem, ManutencaoSolicitacao, PermissaoConferencia
 from .forms import (
     LoginForm, PatrimonioItemForm, FornecedorForm,
     LocalizacaoForm, UsuarioForm, ImportacaoForm, BuscaPatrimonioForm
@@ -40,6 +40,26 @@ from .utils import processar_arquivo, gerar_pdf_relatorio
 def is_admin(user):
     """Verifica se o usuário é administrador (staff)."""
     return user.is_staff
+
+
+def pode_conferir_setor(user, local_nome):
+    """Verifica se o usuário pode conferir um setor específico (admin ou conferente designado)."""
+    if user.is_staff:
+        return True
+    return PermissaoConferencia.objects.filter(
+        usuario=user,
+        localizacao__nome=local_nome
+    ).exists()
+
+
+def get_setores_do_conferente(user):
+    """Retorna os nomes dos setores que o usuário tem permissão para conferir."""
+    if user.is_staff:
+        return None  # Admin vê todos
+    return list(
+        PermissaoConferencia.objects.filter(usuario=user)
+        .values_list('localizacao__nome', flat=True)
+    )
 
 
 # ============================================================
@@ -140,6 +160,14 @@ def dashboard(request):
     # Últimas 10 ações no log
     ultimos_logs = LogAuditoria.objects.order_by('-criado_em')[:10]
 
+    # Movimentações feitas por conferentes (não-admins) — notificação para admin
+    transferencias_conferente = 0
+    if request.user.is_staff:
+        transferencias_conferente = LogAuditoria.objects.filter(
+            acao=LogAuditoria.ACAO_TRANSFERIR,
+            descricao__startswith='[CONFERENTE]',
+        ).count()
+
     contexto = {
         'total_itens': total_itens,
         'itens_ativos': itens_ativos,
@@ -149,6 +177,7 @@ def dashboard(request):
         'por_localizacao': por_localizacao,
         'ultimos_itens': ultimos_itens,
         'ultimos_logs': ultimos_logs,
+        'transferencias_conferente': transferencias_conferente,
         'pagina_ativa': 'dashboard',
     }
     return render(request, 'patrimonio/dashboard.html', contexto)
@@ -947,6 +976,70 @@ def usuario_deletar(request, pk):
     })
 
 
+@login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def usuario_permissoes(request, pk):
+    """
+    Gerencia quais setores um usuário pode conferir.
+    GET  → exibe todas as localizações com checkboxes indicando quais já tem acesso.
+    POST → salva as novas permissões (remove as desmarcadas, adiciona as marcadas).
+    """
+    usuario = get_object_or_404(User, pk=pk)
+
+    # Admins já têm acesso total — não faz sentido configurar permissões
+    if usuario.is_staff:
+        messages.info(request, f'"{usuario.username}" é admin e já tem acesso a todos os setores.')
+        return redirect('usuario_lista')
+
+    localizacoes = Localizacao.objects.all().order_by('nome')
+    permissoes_atuais = set(
+        PermissaoConferencia.objects.filter(usuario=usuario)
+        .values_list('localizacao_id', flat=True)
+    )
+
+    if request.method == 'POST':
+        ids_marcados = set(int(x) for x in request.POST.getlist('localizacoes'))
+
+        # Remover permissões desmarcadas
+        PermissaoConferencia.objects.filter(
+            usuario=usuario
+        ).exclude(localizacao_id__in=ids_marcados).delete()
+
+        # Adicionar novas permissões
+        for loc_id in ids_marcados:
+            if loc_id not in permissoes_atuais:
+                try:
+                    loc = Localizacao.objects.get(pk=loc_id)
+                    PermissaoConferencia.objects.get_or_create(
+                        usuario=usuario,
+                        localizacao=loc,
+                        defaults={'criado_por': request.user}
+                    )
+                except Localizacao.DoesNotExist:
+                    pass
+
+        LogAuditoria.registrar(
+            acao=LogAuditoria.ACAO_EDITAR,
+            tipo_entidade=LogAuditoria.ENTIDADE_USUARIO,
+            descricao=(
+                f'Atualizou permissões de conferência de "{usuario.username}": '
+                f'{len(ids_marcados)} setor(es) atribuído(s).'
+            ),
+            usuario=request.user,
+            entidade_id=usuario.pk,
+            entidade_nome=usuario.username,
+        )
+        messages.success(request, f'Permissões de "{usuario.username}" atualizadas.')
+        return redirect('usuario_lista')
+
+    return render(request, 'patrimonio/usuario_permissoes.html', {
+        'usuario_alvo':     usuario,
+        'localizacoes':     localizacoes,
+        'permissoes_atuais': permissoes_atuais,
+        'pagina_ativa':     'usuarios',
+    })
+
+
 # ============================================================
 # LOGS DE AUDITORIA
 # ============================================================
@@ -1491,11 +1584,19 @@ def _carregar_xls_dados():
 def conferencia_inicio(request):
     """
     Página inicial da conferência.
-    Lista todas as localizações do XLS com contagem de itens,
-    incluindo localizações cadastradas no banco que não estão no XLS.
+    - Admin vê todos os setores.
+    - Conferente vê apenas os setores que tem permissão.
     """
+    setores_permitidos = get_setores_do_conferente(request.user)
+    is_conferente = setores_permitidos is not None  # None = admin (vê tudo)
+
+    # Conferente sem nenhum setor atribuído
+    if is_conferente and not setores_permitidos:
+        messages.warning(request, 'Você ainda não tem nenhum setor de conferência atribuído. Solicite ao administrador.')
+        return redirect('dashboard')
+
     dados = _carregar_xls_dados()
-    if not dados:
+    if not dados and not is_conferente:
         messages.warning(request, 'Carregue o XLS de referência antes de iniciar a conferência.')
         return redirect('carregar_xls_referencia')
 
@@ -1503,31 +1604,41 @@ def conferencia_inicio(request):
     locais = {}
     for chapa, item in dados.items():
         local = item.get('local', '').strip()
-        if local:
-            locais[local] = locais.get(local, 0) + 1
+        if not local:
+            continue
+        if is_conferente and local not in setores_permitidos:
+            continue
+        locais[local] = locais.get(local, 0) + 1
 
     # Inclui localizações cadastradas no banco que não aparecem no XLS
-    # (criadas manualmente ou renomeadas sem correspondência no XLS)
     for loc in Localizacao.objects.all():
+        if is_conferente and loc.nome not in setores_permitidos:
+            continue
         if loc.nome not in locais:
             locais[loc.nome] = PatrimonioItem.objects.filter(localizacao=loc).count()
+
+    # Para conferente: garante que setores atribuídos apareçam mesmo sem itens
+    if is_conferente:
+        for nome in setores_permitidos:
+            if nome not in locais:
+                locais[nome] = 0
 
     locais_lista = sorted(locais.items())  # Ordena A-Z
 
     return render(request, 'patrimonio/conferencia_inicio.html', {
-        'locais':       locais_lista,
-        'total_locais': len(locais_lista),
-        'total_itens':  len(dados),
-        'pagina_ativa': 'patrimonio',
+        'locais':         locais_lista,
+        'total_locais':   len(locais_lista),
+        'total_itens':    sum(locais.values()),
+        'is_conferente':  is_conferente,
+        'pagina_ativa':   'conferencia',
     })
 
 
 @login_required
-@user_passes_test(is_admin, login_url='dashboard')
 def conferencia_transferir(request, pk):
     """
-    Transfere um item patrimonial existente para a sala em conferência.
-    Atualiza apenas o campo localização e registra no log.
+    Transfere um item patrimonial para a sala em conferência (traz para cá).
+    Disponível para admin e conferentes com permissão no setor.
     POST: local_nome=<nome da sala>
     """
     from django.urls import reverse
@@ -1538,6 +1649,10 @@ def conferencia_transferir(request, pk):
     local_nome = request.POST.get('local_nome', '').strip()
 
     if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para transferir para este setor.')
         return redirect('conferencia_inicio')
 
     loc, _ = Localizacao.objects.get_or_create(nome=local_nome)
@@ -1553,7 +1668,6 @@ def conferencia_transferir(request, pk):
         xls_item.local = local_nome
         xls_item.save(update_fields=['local'])
     else:
-        # Item não estava no XLS — cria o registro para que apareça como conferido
         XLSReferenciaItem.objects.create(
             numero_chapa=item.numero_chapa,
             nome=item.nome,
@@ -1562,10 +1676,11 @@ def conferencia_transferir(request, pk):
             status=item.status,
         )
 
+    prefixo = '[CONFERENTE] ' if not request.user.is_staff else ''
     LogAuditoria.registrar(
-        acao=LogAuditoria.ACAO_EDITAR,
+        acao=LogAuditoria.ACAO_TRANSFERIR,
         tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-        descricao=f'Conferência: transferiu [{item.numero_chapa}] {item.nome} de "{loc_anterior}" para "{local_nome}" (XLS atualizado).',
+        descricao=f'{prefixo}Conferência: transferiu [{item.numero_chapa}] {item.nome} de "{loc_anterior}" para "{local_nome}" (XLS atualizado).',
         usuario=request.user,
         entidade_id=str(item.pk),
         entidade_nome=item.nome,
@@ -1575,12 +1690,11 @@ def conferencia_transferir(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='dashboard')
 def conferencia_transferir_lote(request):
     """
     Transfere um conjunto de itens (selecionados via checkbox) para uma localização destino.
     POST: local_nome=<sala origem>  destino_pk=<pk destino>  pks=<id> pks=<id> ...
-    Atualiza o banco e o XLS de referência usando operações em lote para evitar timeout.
+    Disponível para admin e conferentes com permissão no setor de origem.
     """
     from django.urls import reverse
 
@@ -1594,6 +1708,10 @@ def conferencia_transferir_lote(request):
     if not local_nome or not destino_pk or not pks:
         messages.error(request, 'Dados incompletos para a transferência em lote.')
         return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para transferir itens deste setor.')
+        return redirect('conferencia_inicio')
 
     destino = get_object_or_404(Localizacao, pk=destino_pk)
 
@@ -1639,12 +1757,12 @@ def conferencia_transferir_lote(request):
     if xls_para_criar:
         XLSReferenciaItem.objects.bulk_create(xls_para_criar)
 
-    # Um único registro de log para o lote inteiro
+    prefixo = '[CONFERENTE] ' if not request.user.is_staff else ''
     LogAuditoria.registrar(
-        acao=LogAuditoria.ACAO_EDITAR,
+        acao=LogAuditoria.ACAO_TRANSFERIR,
         tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
         descricao=(
-            f'Conferência lote: transferiu {transferidos} item(ns) de "{local_nome}" '
+            f'{prefixo}Conferência lote: transferiu {transferidos} item(ns) de "{local_nome}" '
             f'para "{destino.nome}" (XLS atualizado).'
         ),
         usuario=request.user,
@@ -1660,12 +1778,11 @@ def conferencia_transferir_lote(request):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='dashboard')
 def conferencia_confirmar_xls(request, pk):
     """
     Para itens 'somente_db': confirma a presença do item nesta sala
     atualizando (ou criando) o registro no XLS de referência.
-    Após isso o item passa a aparecer como 'Conferido'.
+    Disponível para admin e conferentes com permissão no setor.
     POST: local_nome=<nome da sala>
     """
     from django.urls import reverse
@@ -1675,6 +1792,10 @@ def conferencia_confirmar_xls(request, pk):
     item = get_object_or_404(PatrimonioItem, pk=pk)
     local_nome = request.POST.get('local_nome', '').strip()
     if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para confirmar itens neste setor.')
         return redirect('conferencia_inicio')
 
     xls_item, criado = XLSReferenciaItem.objects.get_or_create(
@@ -1703,12 +1824,10 @@ def conferencia_confirmar_xls(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='dashboard')
 def conferencia_confirmar_xls_lote(request):
     """
     Confirma em lote todos os itens 'somente_db' da sala no XLS de referência.
-    Cria ou atualiza XLSReferenciaItem para cada um, fazendo todos
-    migrarem de 'Somente no banco' para 'Conferido'.
+    Disponível para admin e conferentes com permissão no setor.
     POST: local_nome=<nome da sala>
     """
     from django.urls import reverse
@@ -1717,6 +1836,10 @@ def conferencia_confirmar_xls_lote(request):
 
     local_nome = request.POST.get('local_nome', '').strip()
     if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para confirmar itens neste setor.')
         return redirect('conferencia_inicio')
 
     # Chapas já presentes no XLS para esta sala
@@ -1761,6 +1884,67 @@ def conferencia_confirmar_xls_lote(request):
 
 
 @login_required
+def conferencia_enviar_para_fora(request, pk):
+    """
+    Transfere um item DESTE setor para outro setor (sentido inverso do transferir para cá).
+    Disponível para admin e conferentes com permissão no setor de origem.
+    POST: local_nome=<sala atual>  destino_pk=<pk da localização destino>
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    item = get_object_or_404(PatrimonioItem, pk=pk)
+    local_nome = request.POST.get('local_nome', '').strip()
+    destino_pk = request.POST.get('destino_pk', '').strip()
+
+    if not local_nome or not destino_pk:
+        messages.error(request, 'Dados incompletos para a transferência.')
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, f'Sem permissão para mover itens do setor "{local_nome}".')
+        return redirect('conferencia_inicio')
+
+    destino = get_object_or_404(Localizacao, pk=destino_pk)
+    loc_anterior = item.localizacao.nome if item.localizacao else 'sem localização'
+
+    item.localizacao = destino
+    if 'baixado' in destino.nome.lower():
+        item.status = PatrimonioItem.STATUS_BAIXADO
+    item.save(update_fields=['localizacao', 'status', 'atualizado_em'])
+
+    # Atualiza o XLS de referência
+    xls_item = XLSReferenciaItem.objects.filter(numero_chapa=item.numero_chapa).first()
+    if xls_item:
+        xls_item.local = destino.nome
+        xls_item.save(update_fields=['local'])
+    else:
+        XLSReferenciaItem.objects.create(
+            numero_chapa=item.numero_chapa,
+            nome=item.nome,
+            data_aquisicao=item.data_aquisicao.strftime('%Y-%m-%d') if item.data_aquisicao else '',
+            local=destino.nome,
+            status=item.status,
+        )
+
+    prefixo = '[CONFERENTE] ' if not request.user.is_staff else ''
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_TRANSFERIR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=(
+            f'{prefixo}Conferência: enviou [{item.numero_chapa}] {item.nome} '
+            f'de "{loc_anterior}" para "{destino.nome}" (XLS atualizado).'
+        ),
+        usuario=request.user,
+        entidade_id=str(item.pk),
+        entidade_nome=item.nome,
+    )
+    messages.success(request, f'Item [{item.numero_chapa}] enviado para "{destino.nome}".')
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{item.numero_chapa}")
+
+
+@login_required
 def conferencia_importar_localizacoes(request):
     """
     Cria registros de Localizacao no banco para cada
@@ -1801,9 +1985,15 @@ def conferencia_sala(request):
       - conferido:    chapa existe no XLS e no banco
       - somente_xls:  chapa no XLS mas não cadastrada no banco
       - somente_db:   chapa no banco (nesta localização) mas não no XLS
+
+    Acesso: admin (qualquer sala) ou conferente (apenas seus setores autorizados).
     """
     local_nome = request.GET.get('local', '').strip()
     if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, f'Você não tem permissão para conferir o setor "{local_nome}".')
         return redirect('conferencia_inicio')
 
     dados = _carregar_xls_dados()
@@ -1889,15 +2079,16 @@ def conferencia_sala(request):
     localizacoes = Localizacao.objects.exclude(nome=local_nome).order_by('nome')
 
     return render(request, 'patrimonio/conferencia_sala.html', {
-        'local_nome':   local_nome,
-        'resultados':   resultados,
-        'conferidos':   conferidos,
-        'divergentes':  divergentes,
-        'somente_xls':  somente_xls,
-        'somente_db':   somente_db,
-        'total':        len(resultados),
-        'localizacoes': localizacoes,
-        'pagina_ativa': 'patrimonio',
+        'local_nome':    local_nome,
+        'resultados':    resultados,
+        'conferidos':    conferidos,
+        'divergentes':   divergentes,
+        'somente_xls':   somente_xls,
+        'somente_db':    somente_db,
+        'total':         len(resultados),
+        'localizacoes':  localizacoes,
+        'is_conferente': not request.user.is_staff,
+        'pagina_ativa':  'conferencia',
     })
 
 

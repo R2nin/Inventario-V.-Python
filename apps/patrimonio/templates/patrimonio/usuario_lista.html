@@ -49,6 +49,14 @@
                     {% endif %}
                 </td>
                 <td class="px-4 py-3 text-right">
+                    <div class="flex items-center justify-end gap-1">
+                    {% if not u.is_staff and not u.is_superuser %}
+                    <a href="{% url 'usuario_permissoes' u.pk %}"
+                       class="px-2.5 py-1.5 text-xs font-medium bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors"
+                       title="Gerenciar setores de conferência">
+                        Setores
+                    </a>
+                    {% endif %}
                     {% if u != request.user and not u.is_superuser %}
                     <a href="{% url 'usuario_deletar' u.pk %}"
                        class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded inline-flex"
@@ -60,6 +68,7 @@
                     {% else %}
                     <span class="text-xs text-gray-300">—</span>
                     {% endif %}
+                    </div>
                 </td>
             </tr>
             {% empty %}

@@ -200,19 +200,21 @@ class LogAuditoria(models.Model):
     """
 
     # --- Tipos de ação ---
-    ACAO_CRIAR    = 'CRIAR'
-    ACAO_EDITAR   = 'EDITAR'
-    ACAO_DELETAR  = 'DELETAR'
-    ACAO_LOGIN    = 'LOGIN'
-    ACAO_LOGOUT   = 'LOGOUT'
-    ACAO_IMPORTAR = 'IMPORTAR'
+    ACAO_CRIAR       = 'CRIAR'
+    ACAO_EDITAR      = 'EDITAR'
+    ACAO_DELETAR     = 'DELETAR'
+    ACAO_LOGIN       = 'LOGIN'
+    ACAO_LOGOUT      = 'LOGOUT'
+    ACAO_IMPORTAR    = 'IMPORTAR'
+    ACAO_TRANSFERIR  = 'TRANSFERIR'
     ACAO_CHOICES = [
-        (ACAO_CRIAR,    'Criar'),
-        (ACAO_EDITAR,   'Editar'),
-        (ACAO_DELETAR,  'Deletar'),
-        (ACAO_LOGIN,    'Login'),
-        (ACAO_LOGOUT,   'Logout'),
-        (ACAO_IMPORTAR, 'Importar'),
+        (ACAO_CRIAR,      'Criar'),
+        (ACAO_EDITAR,     'Editar'),
+        (ACAO_DELETAR,    'Deletar'),
+        (ACAO_LOGIN,      'Login'),
+        (ACAO_LOGOUT,     'Logout'),
+        (ACAO_IMPORTAR,   'Importar'),
+        (ACAO_TRANSFERIR, 'Transferir'),
     ]
 
     # --- Tipos de entidade ---
@@ -339,4 +341,44 @@ class ManutencaoSolicitacao(models.Model):
 
     def __str__(self):
         return f'[{self.numero_chapa}] {self.sala} — {self.criado_em:%d/%m/%Y %H:%M}'
+
+
+# ============================================================
+# PERMISSÕES DE CONFERÊNCIA DE SETOR
+# ============================================================
+class PermissaoConferencia(models.Model):
+    """
+    Concede a um usuário comum a permissão de conferir um setor específico.
+    O admin cria essas permissões na página de gerenciamento de usuários.
+    """
+    usuario     = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='permissoes_conferencia',
+        verbose_name='Usuário'
+    )
+    localizacao = models.ForeignKey(
+        Localizacao,
+        on_delete=models.CASCADE,
+        related_name='conferentes',
+        verbose_name='Localização'
+    )
+    criado_em   = models.DateTimeField(auto_now_add=True, verbose_name='Concedido em')
+    criado_por  = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='permissoes_criadas',
+        verbose_name='Concedido por'
+    )
+
+    class Meta:
+        unique_together = ('usuario', 'localizacao')
+        verbose_name = 'Permissão de Conferência'
+        verbose_name_plural = 'Permissões de Conferência'
+        ordering = ['usuario__username', 'localizacao__nome']
+
+    def __str__(self):
+        return f'{self.usuario.username} → {self.localizacao.nome}'
 
