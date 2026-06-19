@@ -258,7 +258,6 @@ def patrimonio_detalhe(request, pk):
 
 
 @login_required
-@user_passes_test(is_admin, login_url='dashboard')
 def patrimonio_criar(request):
     """
     Cria um novo item patrimonial.
@@ -266,15 +265,27 @@ def patrimonio_criar(request):
       ?local=NomeDaSala  → trava a localização pré-selecionada
       ?chapa=1234        → preenche o número de chapa e dispara auto-fill do XLS
     Ao salvar no modo conferência, volta para a tela da sala.
+
+    Acesso:
+      - Admin: acesso total (criar qualquer item em qualquer local)
+      - Conferente: acesso restrito ao contexto da conferência (?local= obrigatório
+        e deve ser um setor autorizado para o usuário)
     """
     proximo_chapa = PatrimonioItem.proximo_numero_chapa()
 
-    # Modo conferência: localização travada passada via GET
-    local_nome   = request.GET.get('local', '').strip()
+    # Modo conferência: localização travada passada via GET (ou via POST no safety net)
+    local_nome    = request.GET.get('local', '').strip()
     chapa_inicial = request.GET.get('chapa', '')
     local_travado = None
     if local_nome:
         local_travado = Localizacao.objects.filter(nome=local_nome).first()
+
+    # Verificação de acesso: admin tem acesso total; conferente só pode criar
+    # itens no contexto de um setor que tem permissão para conferir.
+    if not request.user.is_staff:
+        if not local_nome or not pode_conferir_setor(request.user, local_nome):
+            messages.error(request, 'Sem permissão para cadastrar itens fora do contexto da conferência do seu setor.')
+            return redirect('conferencia_inicio')
 
     if request.method == 'POST':
         # Safety net para modo conferência: se a chapa já existe, transfere em vez de criar
