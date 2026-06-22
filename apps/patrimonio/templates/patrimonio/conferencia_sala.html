@@ -415,10 +415,23 @@
                     <td class="px-4 py-3 text-right">
                         <div class="flex flex-col items-end gap-1">
                         {% if r.status == 'somente_xls' %}
+                            <form method="post" action="{% url 'conferencia_cadastrar_item' %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="local_nome" value="{{ local_nome }}">
+                                <input type="hidden" name="chapa" value="{{ r.chapa }}">
+                                <button type="submit"
+                                        class="px-2 py-1 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs"
+                                        title="Cadastrar {{ r.nome_xls }} nesta sala (dados do XLS)">
+                                    Cadastrar
+                                </button>
+                            </form>
+                            {% if not is_conferente %}
                             <a href="{% url 'patrimonio_criar' %}?chapa={{ r.chapa }}&local={{ local_nome|urlencode }}"
-                               class="px-2 py-1 bg-blue-700 hover:bg-blue-800 text-white rounded text-xs">
-                                Cadastrar
+                               class="px-2 py-1 bg-gray-500 hover:bg-gray-600 text-white rounded text-xs"
+                               title="Abrir formulário completo">
+                                + detalhes
                             </a>
+                            {% endif %}
                         {% elif r.status == 'local_divergente' %}
                             <form method="post" action="{% url 'conferencia_transferir' r.db_pk %}" style="display:inline;">
                                 {% csrf_token %}

@@ -1646,6 +1646,104 @@ def conferencia_inicio(request):
 
 
 @login_required
+def conferencia_cadastrar_item(request):
+    """
+    Cadastra com um clique um item somente_xls na conferência de sala.
+    Usa os dados do XLSReferenciaItem (nome, data) para criar o PatrimonioItem
+    sem exigir que o conferente preencha um formulário completo.
+    POST: chapa=<int>  local_nome=<nome da sala>
+    Disponível para admin e conferentes com permissão no setor.
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome = request.POST.get('local_nome', '').strip()
+    chapa_str  = request.POST.get('chapa', '').strip()
+
+    if not local_nome or not chapa_str:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para cadastrar itens neste setor.')
+        return redirect('conferencia_inicio')
+
+    try:
+        chapa = int(chapa_str)
+    except ValueError:
+        messages.error(request, 'Número de chapa inválido.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    # Se o item já existe no banco, apenas transfere para cá (safety net)
+    existente = PatrimonioItem.objects.filter(numero_chapa=chapa).first()
+    if existente:
+        loc, _ = Localizacao.objects.get_or_create(nome=local_nome)
+        loc_anterior = existente.localizacao.nome if existente.localizacao else 'sem localização'
+        existente.localizacao = loc
+        existente.save(update_fields=['localizacao', 'atualizado_em'])
+        xls_ref = XLSReferenciaItem.objects.filter(numero_chapa=chapa).first()
+        if xls_ref:
+            xls_ref.local = local_nome
+            xls_ref.save(update_fields=['local'])
+        prefixo = '[CONFERENTE] ' if not request.user.is_staff else ''
+        LogAuditoria.registrar(
+            acao=LogAuditoria.ACAO_TRANSFERIR,
+            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+            descricao=f'{prefixo}Conferência: transferiu [{existente.numero_chapa}] {existente.nome} de "{loc_anterior}" para "{local_nome}".',
+            usuario=request.user,
+            entidade_id=str(existente.pk),
+            entidade_nome=existente.nome,
+        )
+        messages.success(request, f'Item [{chapa}] transferido para "{local_nome}".')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{chapa}")
+
+    # Item não existe no banco — cria usando dados do XLSReferenciaItem
+    xls_ref = XLSReferenciaItem.objects.filter(numero_chapa=chapa).first()
+    nome_item = xls_ref.nome if xls_ref and xls_ref.nome else f'Item {chapa}'
+    data_aq = None
+    if xls_ref and xls_ref.data_aquisicao:
+        from datetime import date
+        try:
+            data_aq = date.fromisoformat(xls_ref.data_aquisicao)
+        except ValueError:
+            pass
+
+    loc, _ = Localizacao.objects.get_or_create(nome=local_nome)
+    novo = PatrimonioItem(
+        numero_chapa=chapa,
+        nome=nome_item,
+        localizacao=loc,
+        data_aquisicao=data_aq,
+        criado_por=request.user,
+        criado_por_nome=request.user.get_full_name() or request.user.username,
+    )
+    novo.save()
+
+    # Garante que o XLS de referência registra este local
+    if xls_ref:
+        xls_ref.local = local_nome
+        xls_ref.save(update_fields=['local'])
+    else:
+        XLSReferenciaItem.objects.create(
+            numero_chapa=chapa,
+            nome=nome_item,
+            local=local_nome,
+        )
+
+    prefixo = '[CONFERENTE] ' if not request.user.is_staff else ''
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_CRIAR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=f'{prefixo}Conferência: cadastrou [{chapa}] {nome_item} em "{local_nome}" via conferência de sala.',
+        usuario=request.user,
+        entidade_id=str(novo.pk),
+        entidade_nome=novo.nome,
+    )
+    messages.success(request, f'Item [{chapa}] "{nome_item}" cadastrado em "{local_nome}".')
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{chapa}")
+
+
+@login_required
 def conferencia_transferir(request, pk):
     """
     Transfere um item patrimonial para a sala em conferência (traz para cá).
