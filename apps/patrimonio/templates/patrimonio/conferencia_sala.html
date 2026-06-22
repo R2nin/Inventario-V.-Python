@@ -103,6 +103,32 @@
     </div>
 </div>
 
+<!-- Registrar chapa manualmente (para itens que não aparecem na lista) -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl px-4 py-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-3">
+    <div class="flex items-center gap-2 text-blue-700 text-sm font-medium flex-shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M21 21l-4.35-4.35M17 11A6 6 0 105 11a6 6 0 0012 0z"/>
+        </svg>
+        Registrar chapa nesta sala:
+    </div>
+    <form method="post" action="{% url 'conferencia_cadastrar_item' %}"
+          class="flex items-center gap-2 flex-1">
+        {% csrf_token %}
+        <input type="hidden" name="local_nome" value="{{ local_nome }}">
+        <input type="number" name="chapa" min="1" placeholder="Número da chapa..."
+               class="flex-1 border border-blue-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"
+               required>
+        <button type="submit"
+                class="px-3 py-1.5 bg-blue-700 hover:bg-blue-800 text-white rounded-lg text-sm font-medium transition-colors whitespace-nowrap">
+            Transferir para cá
+        </button>
+    </form>
+    <p class="text-xs text-blue-500 sm:text-right">
+        Item em outra sala? Digite a chapa e registre aqui.
+    </p>
+</div>
+
 <!-- Barra flutuante de seleção em lote -->
 <div id="barra-selecao"
      class="hidden fixed bottom-0 left-0 right-0 z-40 bg-indigo-700 text-white px-6 py-3 flex items-center justify-between shadow-2xl border-t-2 border-indigo-500">
