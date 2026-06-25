@@ -269,7 +269,7 @@
 <script>
 // ── Beep via Web Audio API ─────────────────────────────────
 let audioCtx = null;
-function beep(freq = 1200, dur = 80, vol = 0.3) {
+function beep(freq = 1200, dur = 80, vol = 0.9) {
     try {
         if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         const osc  = audioCtx.createOscillator();
@@ -283,6 +283,11 @@ function beep(freq = 1200, dur = 80, vol = 0.3) {
         osc.start(audioCtx.currentTime);
         osc.stop(audioCtx.currentTime + dur / 1000);
     } catch (e) { /* silencia erros de áudio */ }
+}
+
+// ── Vibração ───────────────────────────────────────────────
+function vibrar(padrao = [100]) {
+    try { navigator.vibrate && navigator.vibrate(padrao); } catch (e) {}
 }
 
 // ── Elementos ──────────────────────────────────────────────
@@ -691,7 +696,8 @@ function escanearFrame() {
                     requestAnimationFrame(escanearFrame);
                     return;
                 }
-                beep();   // bip de leitura
+                beep();        // bip de leitura
+                vibrar([80]); // vibração curta de confirmação
                 buscarItem(chapa);
                 return;
             } else {
