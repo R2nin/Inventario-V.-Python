@@ -90,6 +90,15 @@
                        class="w-full accent-blue-600">
             </div>
 
+            <!-- Teste de vibração -->
+            <div class="pt-1 border-t border-gray-100 flex items-center gap-2">
+                <button id="btn-testar-vibracao"
+                        class="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg text-xs font-medium">
+                    📳 Testar vibração
+                </button>
+                <span id="vibracao-status" class="text-xs text-gray-400"></span>
+            </div>
+
             <!-- Preview do que o jsQR processa -->
             <div>
                 <p class="text-xs text-gray-400 mb-1">Visão do scanner:</p>
@@ -286,9 +295,31 @@ function beep(freq = 1200, dur = 80, vol = 0.9) {
 }
 
 // ── Vibração ───────────────────────────────────────────────
-function vibrar(padrao = [100]) {
-    try { navigator.vibrate && navigator.vibrate(padrao); } catch (e) {}
+function vibrar(padrao = [200, 60, 150]) {
+    try {
+        if (!navigator.vibrate) { console.warn('Vibration API não suportada'); return; }
+        const ok = navigator.vibrate(padrao);
+        console.log('vibrate() retornou:', ok, 'padrão:', padrao);
+    } catch (e) { console.error('Erro ao vibrar:', e); }
 }
+
+// ── Botão de teste de vibração ────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+    const btnTestar = document.getElementById('btn-testar-vibracao');
+    const statusVib = document.getElementById('vibracao-status');
+    if (btnTestar) {
+        btnTestar.addEventListener('click', () => {
+            if (!navigator.vibrate) {
+                statusVib.textContent = '❌ Não suportado neste browser';
+                statusVib.className = 'text-xs text-red-500';
+                return;
+            }
+            const ok = navigator.vibrate([200, 60, 150]);
+            statusVib.textContent = ok ? '✅ Enviado!' : '⚠️ Bloqueado pelo SO';
+            statusVib.className = 'text-xs ' + (ok ? 'text-green-600' : 'text-yellow-600');
+        });
+    }
+});
 
 // ── Elementos ──────────────────────────────────────────────
 const video          = document.getElementById('video');
