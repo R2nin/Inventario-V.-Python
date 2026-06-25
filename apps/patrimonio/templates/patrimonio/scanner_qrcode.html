@@ -314,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusVib.className = 'text-xs text-red-500';
                 return;
             }
-            const ok = navigator.vibrate([200, 60, 150]);
+            const ok = navigator.vibrate([60,40,60,40,60,40,60,40,300]);
             statusVib.textContent = ok ? '✅ Enviado!' : '⚠️ Bloqueado pelo SO';
             statusVib.className = 'text-xs ' + (ok ? 'text-green-600' : 'text-yellow-600');
         });
@@ -728,7 +728,7 @@ function escanearFrame() {
                     return;
                 }
                 beep();        // bip de leitura
-                vibrar([200, 60, 150]); // dois pulsos: impacto + confirmação
+                vibrar([60,40,60,40,60,40,60,40,300]); // burst + pulso longo
                 buscarItem(chapa);
                 return;
             } else {
