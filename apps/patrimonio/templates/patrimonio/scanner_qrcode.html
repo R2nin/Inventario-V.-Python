@@ -295,12 +295,25 @@ function beep(freq = 1200, dur = 80, vol = 0.9) {
 }
 
 // ── Vibração ───────────────────────────────────────────────
-function vibrar(padrao = [200, 60, 150]) {
+// Chrome Android 77+ exige gesto do usuário para vibrar.
+// Quando chamado fora de gesto (ex: requestAnimationFrame), guardamos
+// o padrão e disparamos no próximo touchstart — que ocorre antes do
+// tap em "Salvar" ou "Pular", dando feedback quase imediato.
+let _vibPendente = null;
+document.addEventListener('touchstart', () => {
+    if (_vibPendente) {
+        try { navigator.vibrate && navigator.vibrate(_vibPendente); } catch(e) {}
+        _vibPendente = null;
+    }
+}, { passive: true });
+
+function vibrar(padrao = [60,40,60,40,60,40,60,40,300]) {
+    if (!navigator.vibrate) return;
     try {
-        if (!navigator.vibrate) { console.warn('Vibration API não suportada'); return; }
         const ok = navigator.vibrate(padrao);
-        console.log('vibrate() retornou:', ok, 'padrão:', padrao);
-    } catch (e) { console.error('Erro ao vibrar:', e); }
+        // Se retornou false ou estamos fora de gesto, agenda para o próximo toque
+        if (!ok) _vibPendente = padrao;
+    } catch(e) { _vibPendente = padrao; }
 }
 
 // ── Botão de teste de vibração ────────────────────────────
