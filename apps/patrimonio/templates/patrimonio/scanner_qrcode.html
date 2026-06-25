@@ -697,7 +697,7 @@ function escanearFrame() {
                     return;
                 }
                 beep();        // bip de leitura
-                vibrar([80]); // vibração curta de confirmação
+                vibrar([200, 60, 150]); // dois pulsos: impacto + confirmação
                 buscarItem(chapa);
                 return;
             } else {
