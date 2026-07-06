@@ -457,6 +457,17 @@
                                title="Abrir formulário completo">
                                 + detalhes
                             </a>
+                            <form method="post" action="{% url 'conferencia_remover_xls' %}" style="display:inline;"
+                                  onsubmit="return confirm('Remover chapa {{ r.chapa }} do XLS de referência? Esta ação não pode ser desfeita.')">
+                                {% csrf_token %}
+                                <input type="hidden" name="local_nome" value="{{ local_nome }}">
+                                <input type="hidden" name="chapa" value="{{ r.chapa }}">
+                                <button type="submit"
+                                        class="px-2 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-xs"
+                                        title="Remover este item do XLS de referência">
+                                    🗑 Remover do XLS
+                                </button>
+                            </form>
                             {% endif %}
                         {% elif r.status == 'local_divergente' %}
                             <form method="post" action="{% url 'conferencia_transferir' r.db_pk %}" style="display:inline;">

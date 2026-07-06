@@ -2258,6 +2258,39 @@ def conferencia_reset(request):
 
 
 @login_required
+@user_passes_test(is_admin, login_url='dashboard')
+def conferencia_remover_xls(request):
+    """
+    Remove um XLSReferenciaItem criado por acidente (item 'somente_xls').
+    POST: chapa=<numero_chapa>  local_nome=<nome da sala>
+    """
+    from django.urls import reverse
+
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome = request.POST.get('local_nome', '').strip()
+    chapa_raw  = request.POST.get('chapa', '').strip()
+
+    try:
+        chapa = int(chapa_raw)
+    except (ValueError, TypeError):
+        messages.error(request, 'Chapa inválida.')
+        return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+    deletado, _ = XLSReferenciaItem.objects.filter(
+        numero_chapa=chapa, local=local_nome
+    ).delete()
+
+    if deletado:
+        messages.success(request, f'Item {chapa} removido do XLS de referência.')
+    else:
+        messages.warning(request, f'Item {chapa} não encontrado no XLS para "{local_nome}".')
+
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+
+@login_required
 def conferencia_exportar(request):
     """
     Gera o Excel de conferência para uma sala.

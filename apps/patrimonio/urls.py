@@ -117,6 +117,7 @@ urlpatterns = [
     path('conferencia/confirmar-xls/<int:pk>/',         views.conferencia_confirmar_xls,         name='conferencia_confirmar_xls'),
     path('conferencia/confirmar-xls-lote/',             views.conferencia_confirmar_xls_lote,    name='conferencia_confirmar_xls_lote'),
     path('conferencia/reset/',                            views.conferencia_reset,                name='conferencia_reset'),
+    path('conferencia/remover-xls/',                      views.conferencia_remover_xls,           name='conferencia_remover_xls'),
     path('conferencia/enviar-para-fora/<int:pk>/',        views.conferencia_enviar_para_fora,     name='conferencia_enviar_para_fora'),
     path('conferencia/exportar/',                       views.conferencia_exportar,             name='conferencia_exportar'),
     path('conferencia/exportar-qrcodes/',               views.conferencia_exportar_qrcodes,     name='conferencia_exportar_qrcodes'),
