@@ -2085,6 +2085,88 @@ def conferencia_importar_localizacoes(request):
 
 
 @login_required
+def conferencia_confirmar_item(request, pk):
+    """
+    Registra explicitamente que um item 'conferido' foi verificado agora.
+    POST: local_nome=<nome da sala>
+    Cria um log ACAO_CONFERIR com o timestamp atual, permitindo re-confirmações.
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    item = get_object_or_404(PatrimonioItem, pk=pk)
+    local_nome = request.POST.get('local_nome', '').strip()
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para conferir itens neste setor.')
+        return redirect('conferencia_inicio')
+
+    LogAuditoria.registrar(
+        acao=LogAuditoria.ACAO_CONFERIR,
+        tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+        descricao=f'Conferência: verificou [{item.numero_chapa}] {item.nome} em "{local_nome}".',
+        usuario=request.user,
+        entidade_id=str(item.pk),
+        entidade_nome=item.nome,
+    )
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}#chapa-{item.numero_chapa}")
+
+
+@login_required
+def conferencia_finalizar(request):
+    """
+    Registra a conferência de todos os itens 'conferido' da sala de uma vez.
+    POST: local_nome=<nome da sala>
+    Cria logs ACAO_CONFERIR em lote com o timestamp atual para todos os itens
+    que estão no XLS e no banco com localização correta.
+    """
+    from django.urls import reverse
+    if request.method != 'POST':
+        return redirect('conferencia_inicio')
+
+    local_nome = request.POST.get('local_nome', '').strip()
+    if not local_nome:
+        return redirect('conferencia_inicio')
+
+    if not pode_conferir_setor(request.user, local_nome):
+        messages.error(request, 'Sem permissão para finalizar conferência neste setor.')
+        return redirect('conferencia_inicio')
+
+    dados = _carregar_xls_dados()
+    chapas_xls = {
+        int(chapa)
+        for chapa, item in dados.items()
+        if item.get('local', '').strip() == local_nome
+    }
+
+    itens_conferidos = PatrimonioItem.objects.filter(
+        numero_chapa__in=chapas_xls,
+        localizacao__nome=local_nome,
+    ).select_related('localizacao')
+
+    usuario_nome = request.user.get_full_name() or request.user.username
+    novos_logs = [
+        LogAuditoria(
+            acao=LogAuditoria.ACAO_CONFERIR,
+            tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+            descricao=f'Conferência: verificou [{item.numero_chapa}] {item.nome} em "{local_nome}".',
+            usuario=request.user,
+            usuario_nome=usuario_nome,
+            entidade_id=str(item.pk),
+            entidade_nome=item.nome,
+        )
+        for item in itens_conferidos
+    ]
+    total = len(novos_logs)
+    LogAuditoria.objects.bulk_create(novos_logs)
+    messages.success(request, f'Conferência finalizada: {total} item(ns) registrado(s) com a data/hora atual.')
+    return redirect(f"{reverse('conferencia_sala')}?local={local_nome}")
+
+
+@login_required
 def conferencia_sala(request):
     """
     Compara itens do XLS vs banco de dados para uma localização.
@@ -2202,35 +2284,6 @@ def conferencia_sala(request):
             .order_by('entidade_id', '-criado_em')
         )
         for log in qs:
-            if log.entidade_id not in logs_conferencia:
-                logs_conferencia[log.entidade_id] = log
-
-    # Para itens conferidos sem nenhum log de conferência, registra CONFERIR agora (uma única vez)
-    usuario_nome = request.user.get_full_name() or request.user.username
-    pks_sem_log = {
-        str(r['db_pk']): r
-        for r in resultados
-        if r['status'] == 'conferido' and r['db_pk'] and str(r['db_pk']) not in logs_conferencia
-    }
-    if pks_sem_log:
-        novos_logs = [
-            LogAuditoria(
-                acao=LogAuditoria.ACAO_CONFERIR,
-                tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
-                descricao=f'Conferência: verificou [{r["chapa"]}] {r["nome_db"] or r["nome_xls"]} em "{local_nome}".',
-                usuario=request.user,
-                usuario_nome=usuario_nome,
-                entidade_id=pk_str,
-                entidade_nome=r['nome_db'] or r['nome_xls'],
-            )
-            for pk_str, r in pks_sem_log.items()
-        ]
-        LogAuditoria.objects.bulk_create(novos_logs)
-        # Carrega os logs recém-criados para preencher conferido_em imediatamente
-        for log in LogAuditoria.objects.filter(
-            entidade_id__in=list(pks_sem_log.keys()),
-            acao=LogAuditoria.ACAO_CONFERIR,
-        ).order_by('entidade_id', '-criado_em'):
             if log.entidade_id not in logs_conferencia:
                 logs_conferencia[log.entidade_id] = log
 

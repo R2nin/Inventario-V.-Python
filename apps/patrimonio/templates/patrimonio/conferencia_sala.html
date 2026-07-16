@@ -66,6 +66,23 @@
             </button>
         </form>
         {% endif %}
+        <!-- Botão: finalizar conferência (registra todos os conferidos agora) -->
+        {% if conferidos > 0 %}
+        <form method="post" action="{% url 'conferencia_finalizar' %}"
+              onsubmit="return confirm('Registrar a conferência de todos os {{ conferidos }} itens conferidos com a data/hora atual?')">
+            {% csrf_token %}
+            <input type="hidden" name="local_nome" value="{{ local_nome }}">
+            <button type="submit"
+                    class="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
+                    title="Registrar data/hora de conferência para todos os {{ conferidos }} itens conferidos">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Finalizar conferência ({{ conferidos }})
+            </button>
+        </form>
+        {% endif %}
         <!-- Botão: exportar QR Codes dos itens conferidos (ZIP de PNGs) -->
         {% if conferidos > 0 %}
         <a href="{% url 'conferencia_exportar_qrcodes' %}?local={{ local_nome|urlencode }}"
@@ -427,9 +444,28 @@
                         {% if r.status == 'conferido' %}
                             <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">✅ Conferido</span>
                             {% if r.conferido_em %}
-                            <span class="text-xs text-green-700 leading-tight">
-                                Conferido em: {{ r.conferido_em|date:"d/m/Y H:i" }}{% if r.conferido_por %}<br>por {{ r.conferido_por }}{% endif %}
+                            <span class="text-xs text-green-700 leading-tight text-center">
+                                {{ r.conferido_em|date:"d/m/Y H:i" }}{% if r.conferido_por %}<br>{{ r.conferido_por }}{% endif %}
                             </span>
+                            <form method="post" action="{% url 'conferencia_confirmar_item' r.db_pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="local_nome" value="{{ local_nome }}">
+                                <button type="submit"
+                                        class="px-2 py-0.5 bg-green-100 hover:bg-green-200 text-green-700 border border-green-300 rounded text-xs"
+                                        title="Re-confirmar presença agora">
+                                    ↺ Re-confirmar
+                                </button>
+                            </form>
+                            {% else %}
+                            <form method="post" action="{% url 'conferencia_confirmar_item' r.db_pk %}" style="display:inline;">
+                                {% csrf_token %}
+                                <input type="hidden" name="local_nome" value="{{ local_nome }}">
+                                <button type="submit"
+                                        class="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-medium"
+                                        title="Registrar conferência deste item agora">
+                                    ✓ Confirmar
+                                </button>
+                            </form>
                             {% endif %}
                         {% elif r.status == 'local_divergente' %}
                             <span class="inline-flex px-2 py-1 text-xs font-medium rounded-full bg-orange-100 text-orange-800">🔀 Outra sala</span>
