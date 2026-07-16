@@ -2185,6 +2185,35 @@ def conferencia_sala(request):
     somente_xls     = sum(1 for r in resultados if r['status'] == 'somente_xls')
     somente_db      = sum(1 for r in resultados if r['status'] == 'somente_db')
 
+    # Busca o log de conferência mais recente para cada item "conferido"
+    pks_conferidos = [
+        str(r['db_pk']) for r in resultados
+        if r['status'] == 'conferido' and r['db_pk']
+    ]
+    logs_conferencia = {}
+    if pks_conferidos:
+        qs = (
+            LogAuditoria.objects
+            .filter(
+                entidade_id__in=pks_conferidos,
+                tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                descricao__contains='Conferência:',
+            )
+            .order_by('entidade_id', '-criado_em')
+        )
+        for log in qs:
+            if log.entidade_id not in logs_conferencia:
+                logs_conferencia[log.entidade_id] = log
+
+    for r in resultados:
+        if r['status'] == 'conferido' and r['db_pk']:
+            log = logs_conferencia.get(str(r['db_pk']))
+            r['conferido_em']  = log.criado_em      if log else None
+            r['conferido_por'] = log.usuario_nome   if log else None
+        else:
+            r['conferido_em']  = None
+            r['conferido_por'] = None
+
     localizacoes = Localizacao.objects.exclude(nome=local_nome).order_by('nome')
 
     return render(request, 'patrimonio/conferencia_sala.html', {
