@@ -2205,6 +2205,35 @@ def conferencia_sala(request):
             if log.entidade_id not in logs_conferencia:
                 logs_conferencia[log.entidade_id] = log
 
+    # Para itens conferidos sem nenhum log de conferência, registra CONFERIR agora (uma única vez)
+    usuario_nome = request.user.get_full_name() or request.user.username
+    pks_sem_log = {
+        str(r['db_pk']): r
+        for r in resultados
+        if r['status'] == 'conferido' and r['db_pk'] and str(r['db_pk']) not in logs_conferencia
+    }
+    if pks_sem_log:
+        novos_logs = [
+            LogAuditoria(
+                acao=LogAuditoria.ACAO_CONFERIR,
+                tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                descricao=f'Conferência: verificou [{r["chapa"]}] {r["nome_db"] or r["nome_xls"]} em "{local_nome}".',
+                usuario=request.user,
+                usuario_nome=usuario_nome,
+                entidade_id=pk_str,
+                entidade_nome=r['nome_db'] or r['nome_xls'],
+            )
+            for pk_str, r in pks_sem_log.items()
+        ]
+        LogAuditoria.objects.bulk_create(novos_logs)
+        # Carrega os logs recém-criados para preencher conferido_em imediatamente
+        for log in LogAuditoria.objects.filter(
+            entidade_id__in=list(pks_sem_log.keys()),
+            acao=LogAuditoria.ACAO_CONFERIR,
+        ).order_by('entidade_id', '-criado_em'):
+            if log.entidade_id not in logs_conferencia:
+                logs_conferencia[log.entidade_id] = log
+
     for r in resultados:
         if r['status'] == 'conferido' and r['db_pk']:
             log = logs_conferencia.get(str(r['db_pk']))

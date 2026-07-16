@@ -207,6 +207,7 @@ class LogAuditoria(models.Model):
     ACAO_LOGOUT      = 'LOGOUT'
     ACAO_IMPORTAR    = 'IMPORTAR'
     ACAO_TRANSFERIR  = 'TRANSFERIR'
+    ACAO_CONFERIR    = 'CONFERIR'
     ACAO_CHOICES = [
         (ACAO_CRIAR,      'Criar'),
         (ACAO_EDITAR,     'Editar'),
@@ -215,6 +216,7 @@ class LogAuditoria(models.Model):
         (ACAO_LOGOUT,     'Logout'),
         (ACAO_IMPORTAR,   'Importar'),
         (ACAO_TRANSFERIR, 'Transferir'),
+        (ACAO_CONFERIR,   'Conferir'),
     ]
 
     # --- Tipos de entidade ---
