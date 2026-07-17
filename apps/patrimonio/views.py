@@ -227,11 +227,29 @@ def patrimonio_lista(request):
     pagina_num = request.GET.get('pagina', 1)
     pagina = paginador.get_page(pagina_num)
 
+    # Busca o log de conferência mais recente para os itens da página atual
+    pks_pagina = [str(item.pk) for item in pagina]
+    ultima_conferencia = {}
+    if pks_pagina:
+        qs = (
+            LogAuditoria.objects
+            .filter(
+                entidade_id__in=pks_pagina,
+                tipo_entidade=LogAuditoria.ENTIDADE_PATRIMONIO,
+                descricao__contains='Conferência:',
+            )
+            .order_by('entidade_id', '-criado_em')
+        )
+        for log in qs:
+            if log.entidade_id not in ultima_conferencia:
+                ultima_conferencia[log.entidade_id] = log
+
     contexto = {
         'itens': pagina,
         'form_busca': form_busca,
         'total': itens.count() if hasattr(itens, 'count') else len(itens),
         'pagina_ativa': 'patrimonio',
+        'ultima_conferencia': ultima_conferencia,
     }
     return render(request, 'patrimonio/patrimonio_lista.html', contexto)
 
